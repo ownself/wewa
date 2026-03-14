@@ -1,0 +1,3 @@
+# Clippy linting configuration
+msrv = "1.75.0"
+cognitive-complexity-threshold = 25
