@@ -6,11 +6,22 @@
 #[cfg(target_os = "windows")]
 pub mod windows;
 
-#[cfg(target_os = "windows")]
-pub use windows::display::enumerate_displays;
+#[cfg(target_os = "linux")]
+pub mod linux;
 
 #[cfg(target_os = "windows")]
-pub use windows::init_platform;
+pub use windows::{
+    display::{enumerate_displays, print_display_info},
+    ensure_runtime_available, init_platform,
+    wallpaper::create_wallpapers,
+};
+
+#[cfg(target_os = "linux")]
+pub use linux::{
+    display::{enumerate_displays, print_display_info},
+    ensure_runtime_available, init_platform,
+    wallpaper::create_wallpapers,
+};
 
 /// Platform initialization result
 pub type PlatformResult<T> = Result<T, PlatformError>;
@@ -21,6 +32,9 @@ pub enum PlatformError {
     /// Windows-specific error
     #[cfg(target_os = "windows")]
     WindowsError(String),
+    /// Linux-specific error
+    #[cfg(target_os = "linux")]
+    LinuxError(String),
     /// Display enumeration failed
     DisplayEnumerationFailed(String),
     /// Webview creation failed
@@ -34,6 +48,8 @@ impl std::fmt::Display for PlatformError {
         match self {
             #[cfg(target_os = "windows")]
             PlatformError::WindowsError(msg) => write!(f, "Windows error: {}", msg),
+            #[cfg(target_os = "linux")]
+            PlatformError::LinuxError(msg) => write!(f, "Linux error: {}", msg),
             PlatformError::DisplayEnumerationFailed(msg) => {
                 write!(f, "Display enumeration failed: {}", msg)
             }

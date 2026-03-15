@@ -1,8 +1,8 @@
 # WebWallpaper
 
-Display web content as desktop wallpaper on Windows.
+Display web content as desktop wallpaper on Windows and Linux.
 
-A high-performance Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen, click-through desktop wallpaper with multi-monitor support. Uses the WorkerW technique to truly embed into the desktop, immune to window managers like komorebi.
+A high-performance Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support. Windows uses the WorkerW technique for deep desktop integration, and Linux currently targets Wayland compositors with layer-shell support such as Hyprland.
 
 ---
 
@@ -14,20 +14,25 @@ A high-performance Rust CLI tool that renders web pages (URLs or local HTML file
 
 ### Features
 
-- **True Desktop Integration** - Uses Windows WorkerW technique to embed wallpaper into the desktop layer
-- **Window Manager Immune** - Invisible to tiling window managers like komorebi
-- **Win+D Compatible** - Show Desktop (Win+D) won't affect the wallpaper
-- **Click-Through** - Mouse and keyboard pass through to the desktop
+- **Cross-Platform Architecture** - Shared CLI, config, URL handling, local file serving, and IPC protocol
+- **Windows Desktop Integration** - Uses WorkerW to embed wallpaper into the desktop layer
+- **Wayland / Hyprland Support** - Uses layer-shell on Linux Wayland compositors that support background layers
+- **Desktop-Friendly Windows** - No decorations, no taskbar/pager entry, no focus stealing
 - **Multi-Monitor Support** - Apply to all displays or target specific ones
 - **Local File Support** - Built-in HTTP server for local HTML files with symlink support
 - **ShaderToy Integration** - Automatically transforms ShaderToy URLs to fullscreen embed format
-- **IPC Control** - Stop wallpapers remotely via named pipes
-- **Graceful Shutdown** - Ctrl+C handling with proper desktop refresh
+- **IPC Control** - Stop wallpapers remotely via named pipes on Windows and Unix domain sockets on Linux
+- **Graceful Shutdown** - Ctrl+C handling with platform-specific cleanup
 
 ### Requirements
 
-- **Windows 10** (April 2018 Update or later) or **Windows 11**
-- **WebView2 Runtime** (usually pre-installed, or [download here](https://developer.microsoft.com/microsoft-edge/webview2/))
+- **Windows**
+  - **Windows 10** (April 2018 Update or later) or **Windows 11**
+  - **WebView2 Runtime** (usually pre-installed, or [download here](https://developer.microsoft.com/microsoft-edge/webview2/))
+- **Linux**
+  - Wayland session
+  - A compositor with `layer-shell` support, currently tested against the Hyprland target path
+  - GTK 3, WebKitGTK, and gtk-layer-shell development/runtime libraries
 
 ### Installation
 
@@ -38,10 +43,13 @@ A high-performance Rust CLI tool that renders web pages (URLs or local HTML file
 git clone https://github.com/user/webwallpaper.git
 cd webwallpaper
 
+# Linux example dependencies (Debian/Ubuntu family)
+sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev
+
 # Build release binary
 cargo build --release
 
-# Binary is at target/release/webwallpaper.exe
+# Binary is at target/release/webwallpaper (Linux) or target/release/webwallpaper.exe (Windows)
 ```
 
 ### Usage
@@ -118,19 +126,31 @@ webwallpaper --verbose https://example.com
 | 1 | General error |
 | 2 | Display not found |
 | 3 | No running instance to stop |
-| 4 | WebView2 runtime not available |
+| 4 | Required webview/runtime support not available |
 | 5 | Server startup failed (port in use) |
 
 ### How It Works
 
-WebWallpaper uses the **WorkerW technique** to embed content as part of the Windows desktop:
+WebWallpaper now has two platform backends:
+
+- **Windows:** uses the **WorkerW technique** to embed content as part of the desktop.
+- **Linux (Wayland-first):** creates GTK layer-shell background windows bound to compositor outputs and embeds web content through `wry`'s GTK path.
+
+Windows flow:
 
 1. Sends message `0x052C` to Progman to spawn a WorkerW window behind desktop icons
 2. Finds the WorkerW handle by enumerating windows with SHELLDLL_DefView
 3. Uses `SetParent` to attach the wallpaper window as a child of WorkerW
 4. Applies WS_CHILD and transparency styles for proper integration
 
-This makes the wallpaper:
+Linux Wayland flow:
+
+1. Enumerates monitors through GDK
+2. Creates one GTK window per target output
+3. Turns each window into a layer-shell background surface
+4. Embeds a `wry` webview through GTK so it works on Wayland compositors such as Hyprland
+
+This makes the wallpaper backend-specific but keeps the CLI and instance-management flow shared.
 - Truly part of the desktop (not just a bottom-most window)
 - Invisible to window managers like komorebi
 - Unaffected by Win+D (Show Desktop)
@@ -193,6 +213,14 @@ webwallpaper ./index.html
 
 Install WebView2 from: https://developer.microsoft.com/microsoft-edge/webview2/
 
+#### Wayland / Layer-Shell Not Available
+
+If Linux startup reports missing Wayland or layer-shell support:
+
+- Make sure you are running a Wayland session, not X11
+- Use a compositor that supports layer-shell, such as Hyprland
+- Install the GTK / WebKitGTK / gtk-layer-shell packages listed above
+
 #### Port Already in Use
 
 Use a different port:
@@ -220,14 +248,18 @@ src/
 ├── cli.rs            # Argument parsing (clap)
 ├── config.rs         # Configuration and instance tracking
 ├── server.rs         # Local HTTP server (tiny_http) with symlink support
-├── ipc.rs            # Inter-process communication (named pipes)
-├── display.rs        # Monitor enumeration trait
-├── wallpaper.rs      # Wallpaper window trait
+├── ipc.rs            # Inter-process communication (named pipes / Unix sockets)
+├── display.rs        # Shared monitor data model
+├── wallpaper.rs      # Shared wallpaper configuration/errors
 └── platform/
-    └── windows/      # Windows-specific implementation
-        ├── mod.rs        # WebView2 detection
-        ├── display.rs    # EnumDisplayMonitors
-        └── wallpaper.rs  # WorkerW technique + WebView2
+    ├── windows/      # Windows-specific implementation
+    │   ├── mod.rs        # DPI + WebView2 checks
+    │   ├── display.rs    # EnumDisplayMonitors
+    │   └── wallpaper.rs  # WorkerW technique + WebView2
+    └── linux/        # Linux Wayland-first implementation
+        ├── mod.rs        # GTK + runtime checks
+        ├── display.rs    # GDK monitor enumeration
+        └── wallpaper.rs  # GTK layer-shell + wry GTK webview
 ```
 
 ### License
@@ -240,20 +272,25 @@ MIT
 
 ### 功能特性
 
-- **真正的桌面集成** - 使用 Windows WorkerW 技术将壁纸嵌入桌面层
-- **窗口管理器免疫** - 对 komorebi 等平铺窗口管理器不可见
-- **Win+D 兼容** - 显示桌面 (Win+D) 不会影响壁纸
-- **鼠标穿透** - 鼠标和键盘事件直接传递到桌面
+- **跨平台架构** - 共享 CLI、配置、URL 处理、本地文件服务与 IPC 协议
+- **Windows 深度桌面集成** - 使用 WorkerW 技术将壁纸嵌入桌面层
+- **Wayland / Hyprland 支持** - Linux 下优先支持具备 layer-shell 的 Wayland compositor
+- **桌面友好窗口行为** - 无装饰、不抢焦点、不显示在任务栏或分页器中
 - **多显示器支持** - 可应用到所有显示器或指定特定显示器
 - **本地文件支持** - 内置 HTTP 服务器，支持符号链接
 - **ShaderToy 集成** - 自动将 ShaderToy URL 转换为全屏嵌入格式
-- **IPC 控制** - 通过命名管道远程停止壁纸
-- **优雅关闭** - Ctrl+C 处理并正确刷新桌面
+- **IPC 控制** - Windows 使用命名管道，Linux 使用 Unix Domain Socket
+- **优雅关闭** - Ctrl+C 处理并执行平台相关清理
 
 ### 系统要求
 
-- **Windows 10**（2018年4月更新或更高版本）或 **Windows 11**
-- **WebView2 运行时**（通常已预装，或[点击下载](https://developer.microsoft.com/microsoft-edge/webview2/)）
+- **Windows**
+  - **Windows 10**（2018年4月更新或更高版本）或 **Windows 11**
+  - **WebView2 运行时**（通常已预装，或[点击下载](https://developer.microsoft.com/microsoft-edge/webview2/)）
+- **Linux**
+  - Wayland 会话
+  - 支持 `layer-shell` 的 compositor，当前首要目标是 Hyprland
+  - GTK 3、WebKitGTK 与 gtk-layer-shell 运行库 / 开发库
 
 ### 安装
 
@@ -264,10 +301,13 @@ MIT
 git clone https://github.com/user/webwallpaper.git
 cd webwallpaper
 
+# Linux 示例依赖（Debian/Ubuntu 系）
+sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev
+
 # 编译发布版本
 cargo build --release
 
-# 二进制文件位于 target/release/webwallpaper.exe
+# 二进制文件位于 target/release/webwallpaper（Linux）或 target/release/webwallpaper.exe（Windows）
 ```
 
 ### 使用方法
@@ -344,23 +384,31 @@ webwallpaper --verbose https://example.com
 | 1 | 一般错误 |
 | 2 | 显示器未找到 |
 | 3 | 没有运行中的实例可停止 |
-| 4 | WebView2 运行时不可用 |
+| 4 | 所需 WebView / 运行时支持不可用 |
 | 5 | 服务器启动失败（端口被占用） |
 
 ### 工作原理
 
-WebWallpaper 使用 **WorkerW 技术** 将内容嵌入 Windows 桌面：
+WebWallpaper 现在包含两个平台后端：
+
+- **Windows：** 使用 **WorkerW 技术** 把内容嵌入桌面。
+- **Linux（Wayland 优先）：** 创建绑定到输出的 GTK layer-shell 背景窗口，并通过 `wry` 的 GTK 路径嵌入网页内容。
+
+Windows 路径：
 
 1. 向 Progman 发送消息 `0x052C` 以在桌面图标后面生成 WorkerW 窗口
 2. 通过枚举具有 SHELLDLL_DefView 的窗口来查找 WorkerW 句柄
 3. 使用 `SetParent` 将壁纸窗口附加为 WorkerW 的子窗口
 4. 应用 WS_CHILD 和透明度样式以实现正确集成
 
-这使得壁纸：
-- 真正成为桌面的一部分（而不仅仅是最底层窗口）
-- 对 komorebi 等窗口管理器不可见
-- 不受 Win+D（显示桌面）影响
-- 关闭时正确清理（桌面刷新）
+Linux Wayland 路径：
+
+1. 通过 GDK 枚举显示器
+2. 为每个目标输出创建一个 GTK 窗口
+3. 将窗口转换为 layer-shell 背景层 surface
+4. 通过 `wry` 的 GTK 接口嵌入 WebView，以适配 Hyprland 这类 Wayland compositor
+
+这样平台集成方式虽然不同，但 CLI、实例管理与 URL 处理仍保持共享。
 
 ### 创建网页壁纸
 
@@ -419,6 +467,14 @@ webwallpaper ./index.html
 
 从以下地址安装 WebView2：https://developer.microsoft.com/microsoft-edge/webview2/
 
+#### Wayland / Layer-Shell 不可用
+
+如果 Linux 启动时提示缺少 Wayland 或 layer-shell 支持：
+
+- 确认当前运行的是 Wayland，而不是 X11
+- 使用支持 layer-shell 的 compositor，例如 Hyprland
+- 安装上文列出的 GTK / WebKitGTK / gtk-layer-shell 依赖
+
 #### 端口已被占用
 
 使用不同的端口：
@@ -446,14 +502,18 @@ src/
 ├── cli.rs            # 参数解析 (clap)
 ├── config.rs         # 配置和实例跟踪
 ├── server.rs         # 本地 HTTP 服务器 (tiny_http)，支持符号链接
-├── ipc.rs            # 进程间通信（命名管道）
-├── display.rs        # 显示器枚举特性
-├── wallpaper.rs      # 壁纸窗口特性
+├── ipc.rs            # 进程间通信（命名管道 / Unix Socket）
+├── display.rs        # 共享显示器数据模型
+├── wallpaper.rs      # 共享壁纸配置与错误类型
 └── platform/
-    └── windows/      # Windows 特定实现
-        ├── mod.rs        # WebView2 检测
-        ├── display.rs    # EnumDisplayMonitors
-        └── wallpaper.rs  # WorkerW 技术 + WebView2
+    ├── windows/      # Windows 特定实现
+    │   ├── mod.rs        # DPI + WebView2 检测
+    │   ├── display.rs    # EnumDisplayMonitors
+    │   └── wallpaper.rs  # WorkerW 技术 + WebView2
+    └── linux/        # Linux Wayland 优先实现
+        ├── mod.rs        # GTK + 运行时检查
+        ├── display.rs    # GDK 显示器枚举
+        └── wallpaper.rs  # GTK layer-shell + wry GTK WebView
 ```
 
 ### 许可证
