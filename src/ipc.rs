@@ -1,9 +1,15 @@
 //! Inter-process communication for wallpaper control
 //!
-//! Uses Windows named pipes for IPC between the CLI and running wallpaper instances.
+//! Uses platform-specific local IPC between the CLI and running wallpaper instances.
 //! Protocol: Simple text-based commands (STOP:N, STOP:ALL, PING)
 
+#[cfg(target_os = "linux")]
+use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
+#[cfg(target_os = "linux")]
+use std::os::unix::net::{UnixListener, UnixStream};
+#[cfg(target_os = "linux")]
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
@@ -90,6 +96,13 @@ impl IpcResponse {
 /// Named pipe path for IPC
 pub const PIPE_NAME: &str = r"\\.\pipe\webwallpaper_control";
 
+#[cfg(target_os = "linux")]
+fn socket_path() -> PathBuf {
+    std::env::temp_dir()
+        .join("webwallpaper")
+        .join("webwallpaper_control.sock")
+}
+
 /// IPC server that listens for commands
 pub struct IpcServer {
     /// Thread handle for the listener
@@ -171,6 +184,46 @@ impl IpcServer {
         Ok(())
     }
 
+    /// Start the IPC server in a background thread
+    #[cfg(target_os = "linux")]
+    pub fn start(&mut self) -> io::Result<()> {
+        let shutdown = self.shutdown.clone();
+        let (tx, rx) = mpsc::channel::<IpcCommand>();
+        self.command_rx = Some(rx);
+
+        let path = socket_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if path.exists() {
+            let _ = fs::remove_file(&path);
+        }
+
+        let listener = UnixListener::bind(&path)?;
+        listener.set_nonblocking(true)?;
+
+        let handle = thread::spawn(move || {
+            while !shutdown.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((stream, _)) => {
+                        let _ = handle_unix_client(stream, &tx);
+                    }
+                    Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(100));
+                    }
+                    Err(_) => {
+                        thread::sleep(Duration::from_millis(100));
+                    }
+                }
+            }
+
+            let _ = fs::remove_file(&path);
+        });
+
+        self._thread_handle = Some(handle);
+        Ok(())
+    }
+
     /// Get the command receiver
     pub fn command_receiver(&mut self) -> Option<Receiver<IpcCommand>> {
         self.command_rx.take()
@@ -231,24 +284,76 @@ impl IpcClient {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid response"))
     }
 
+    /// Send a command to the IPC server and get response
+    #[cfg(target_os = "linux")]
+    pub fn send_command(command: &IpcCommand) -> io::Result<IpcResponse> {
+        let path = socket_path();
+        let stream = UnixStream::connect(&path).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("Failed to connect to {:?}: {}", path, e),
+            )
+        })?;
+
+        send_and_receive(stream, command)
+    }
+
     /// Check if the IPC server is running
-    #[cfg(target_os = "windows")]
     #[allow(dead_code)]
     pub fn ping() -> bool {
         matches!(Self::send_command(&IpcCommand::Ping), Ok(IpcResponse::Pong))
     }
 
     /// Send stop command for a specific display
-    #[cfg(target_os = "windows")]
     pub fn stop_display(display_index: u32) -> io::Result<IpcResponse> {
         Self::send_command(&IpcCommand::Stop(display_index))
     }
 
     /// Send stop all command
-    #[cfg(target_os = "windows")]
     pub fn stop_all() -> io::Result<IpcResponse> {
         Self::send_command(&IpcCommand::StopAll)
     }
+}
+
+fn send_and_receive<T>(stream: T, command: &IpcCommand) -> io::Result<IpcResponse>
+where
+    T: io::Read + Write,
+{
+    let mut writer = stream;
+    let cmd_str = format!("{}\n", command.to_string());
+    writer.write_all(cmd_str.as_bytes())?;
+    writer.flush()?;
+
+    let mut reader = BufReader::new(writer);
+    let mut response_line = String::new();
+    reader.read_line(&mut response_line)?;
+
+    IpcResponse::parse(&response_line)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid response"))
+}
+
+#[cfg(target_os = "linux")]
+fn handle_unix_client(stream: UnixStream, tx: &mpsc::Sender<IpcCommand>) -> io::Result<()> {
+    let mut reader = BufReader::new(stream.try_clone()?);
+    let mut line = String::new();
+    reader.read_line(&mut line)?;
+
+    if let Some(cmd) = IpcCommand::parse(&line) {
+        let response = match &cmd {
+            IpcCommand::Ping => IpcResponse::Pong,
+            IpcCommand::Stop(_) => IpcResponse::Ok,
+            IpcCommand::StopAll => IpcResponse::OkCount(1),
+        };
+
+        tx.send(cmd)
+            .map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e.to_string()))?;
+
+        let mut writer = stream;
+        writer.write_all(format!("{}\n", response.to_string()).as_bytes())?;
+        writer.flush()?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

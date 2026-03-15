@@ -29,7 +29,6 @@ mod exit_codes {
 
 fn main() {
     // Initialize platform (DPI awareness, etc.)
-    #[cfg(target_os = "windows")]
     if let Err(e) = platform::init_platform() {
         eprintln!("[WARN] Platform initialization warning: {}", e);
     }
@@ -183,8 +182,7 @@ fn handle_start(
     }
 
     // Enumerate displays
-    #[cfg(target_os = "windows")]
-    let displays = match platform::enumerate_displays() {
+    let displays: Vec<crate::display::Display> = match platform::enumerate_displays() {
         Ok(d) => d,
         Err(e) => {
             eprintln!("error: Failed to enumerate displays: {}", e);
@@ -193,17 +191,13 @@ fn handle_start(
     };
 
     if verbose {
-        #[cfg(target_os = "windows")]
-        platform::windows::display::print_display_info(&displays);
+        platform::print_display_info(&displays);
     }
 
-    // Check WebView2 availability before proceeding
-    #[cfg(target_os = "windows")]
-    {
-        if !platform::windows::is_webview2_available() {
-            platform::windows::print_webview2_error();
-            return exit_codes::WEBVIEW_NOT_AVAILABLE;
-        }
+    // Check platform runtime availability before proceeding
+    if let Err(e) = platform::ensure_runtime_available() {
+        eprintln!("error: {}", e);
+        return exit_codes::WEBVIEW_NOT_AVAILABLE;
     }
 
     // Determine target displays
@@ -349,19 +343,15 @@ fn handle_start(
     }
 
     // Create and run the wallpapers (this blocks)
-    #[cfg(target_os = "windows")]
-    {
-        use crate::platform::windows::wallpaper::create_wallpapers;
-        if let Err(e) = create_wallpapers(wallpaper_configs) {
-            eprintln!("error: Wallpaper creation failed: {}", e);
+    if let Err(e) = platform::create_wallpapers(wallpaper_configs) {
+        eprintln!("error: Wallpaper creation failed: {}", e);
 
-            // Clean up instance files
-            for index in &display_indices {
-                let _ = WallpaperInstance::delete(config, *index);
-            }
-
-            return exit_codes::GENERAL_ERROR;
+        // Clean up instance files
+        for index in &display_indices {
+            let _ = WallpaperInstance::delete(config, *index);
         }
+
+        return exit_codes::GENERAL_ERROR;
     }
 
     // Clean up on exit

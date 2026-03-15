@@ -6,7 +6,7 @@
 pub mod display;
 pub mod wallpaper;
 
-use crate::platform::PlatformResult;
+use crate::platform::{PlatformError, PlatformResult};
 use std::path::Path;
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwareness, PROCESS_PER_MONITOR_DPI_AWARE};
 
@@ -30,6 +30,17 @@ pub fn init_platform() -> PlatformResult<()> {
     }
 
     Ok(())
+}
+
+/// Ensure the Windows runtime prerequisites are available.
+pub fn ensure_runtime_available() -> PlatformResult<()> {
+    if is_webview2_available() {
+        Ok(())
+    } else {
+        Err(PlatformError::Other(
+            "WebView2 runtime not available. Install Microsoft Edge or the WebView2 Runtime from https://developer.microsoft.com/microsoft-edge/webview2/".to_string(),
+        ))
+    }
 }
 
 /// Check if WebView2 runtime is available
