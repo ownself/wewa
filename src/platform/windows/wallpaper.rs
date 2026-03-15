@@ -2,6 +2,9 @@
 //!
 //! Creates and manages wallpaper windows using WebView2 for rendering
 //! and Win32 API for window styling (click-through, Z-order, etc.)
+//!
+//! Uses the WorkerW technique to embed wallpaper as a child of the desktop,
+//! making it immune to window managers like komorebi.
 
 use crate::ipc::{IpcCommand, IpcServer};
 use crate::wallpaper::{WallpaperConfig, WallpaperError, WallpaperResult};
@@ -14,18 +17,197 @@ use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 use tao::platform::windows::WindowExtWindows;
 use tao::window::{Window, WindowBuilder};
-use windows::Win32::Foundation::{COLORREF, HWND};
+use windows::Win32::Foundation::{BOOL, COLORREF, HWND, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos,
-    GWL_EXSTYLE, GWL_STYLE, HWND_BOTTOM, LAYERED_WINDOW_ATTRIBUTES_FLAGS, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
+    EnumWindows, FindWindowExW, FindWindowW, GetWindowLongW, SendMessageTimeoutW,
+    SetLayeredWindowAttributes, SetParent, SetWindowLongW, SetWindowPos, SystemParametersInfoW,
+    GWL_EXSTYLE, GWL_STYLE, HWND_BOTTOM, LAYERED_WINDOW_ATTRIBUTES_FLAGS, SMTO_NORMAL,
+    SPIF_UPDATEINIFILE, SPI_SETDESKWALLPAPER, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_SHOWWINDOW, WS_CHILD, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::PCWSTR;
 use wry::{WebView, WebViewBuilder};
 
 // LWA_ALPHA constant
 const LWA_ALPHA: LAYERED_WINDOW_ATTRIBUTES_FLAGS = LAYERED_WINDOW_ATTRIBUTES_FLAGS(2u32);
+
+/// Desktop layer info for WorkerW technique
+struct DesktopLayer {
+    worker_w: HWND,
+    #[allow(dead_code)]
+    progman: HWND,
+}
+
+/// Setup the desktop layer using the WorkerW technique
+///
+/// This sends message 0x052C to Progman to spawn a WorkerW window behind
+/// the desktop icons, then finds that WorkerW handle.
+fn setup_desktop_layer(verbose: bool) -> Option<DesktopLayer> {
+    unsafe {
+        if verbose {
+            println!("[INFO] Setting up desktop layer (WorkerW technique)...");
+        }
+
+        // Find Progman window
+        let progman_class: Vec<u16> = "Progman\0".encode_utf16().collect();
+        let progman = FindWindowW(PCWSTR::from_raw(progman_class.as_ptr()), PCWSTR::null());
+
+        if progman.0 == 0 {
+            if verbose {
+                println!("[WARN] Could not find Progman window");
+            }
+            return None;
+        }
+
+        if verbose {
+            println!("[INFO] Found Progman: {:?}", progman);
+        }
+
+        // Send 0x052C to Progman to spawn WorkerW behind desktop icons
+        // Parameters: wParam=0xD, lParam=0x1
+        let mut _result: usize = 0;
+        let _ = SendMessageTimeoutW(
+            progman,
+            0x052C,
+            windows::Win32::Foundation::WPARAM(0xD),
+            LPARAM(0x1),
+            SMTO_NORMAL,
+            1000,
+            Some(&mut _result),
+        );
+
+        if verbose {
+            println!("[INFO] Sent spawn WorkerW message to Progman");
+        }
+
+        // Find WorkerW by enumerating windows
+        // We need to find the window that has SHELLDLL_DefView as child,
+        // then get its next sibling WorkerW
+        let mut worker_w = HWND(0);
+        let worker_w_ptr = &mut worker_w as *mut HWND;
+
+        let _ = EnumWindows(
+            Some(enum_windows_callback),
+            LPARAM(worker_w_ptr as isize),
+        );
+
+        if worker_w.0 == 0 {
+            if verbose {
+                println!("[WARN] Could not find WorkerW window");
+            }
+            return None;
+        }
+
+        if verbose {
+            println!("[INFO] Found WorkerW: {:?}", worker_w);
+        }
+
+        Some(DesktopLayer {
+            worker_w,
+            progman,
+        })
+    }
+}
+
+/// Callback for EnumWindows to find WorkerW
+unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let shell_class: Vec<u16> = "SHELLDLL_DefView\0".encode_utf16().collect();
+
+    // Check if this window has SHELLDLL_DefView as child
+    let shell_view = FindWindowExW(
+        hwnd,
+        HWND(0),
+        PCWSTR::from_raw(shell_class.as_ptr()),
+        PCWSTR::null(),
+    );
+
+    if shell_view.0 != 0 {
+        // Found SHELLDLL_DefView, now get the WorkerW sibling
+        let worker_class: Vec<u16> = "WorkerW\0".encode_utf16().collect();
+        let worker_w = FindWindowExW(
+            HWND(0),
+            hwnd,
+            PCWSTR::from_raw(worker_class.as_ptr()),
+            PCWSTR::null(),
+        );
+
+        if worker_w.0 != 0 {
+            // Store the WorkerW handle
+            let worker_w_ptr = lparam.0 as *mut HWND;
+            *worker_w_ptr = worker_w;
+            return BOOL(0); // Stop enumeration
+        }
+    }
+
+    BOOL(1) // Continue enumeration
+}
+
+/// Refresh the desktop wallpaper to clear any ghost images
+/// This is called when shutting down to clean up WorkerW remnants
+fn refresh_desktop(verbose: bool) {
+    unsafe {
+        if verbose {
+            println!("[INFO] Refreshing desktop wallpaper to clear remnants...");
+        }
+        // This triggers Windows to redraw the desktop wallpaper
+        // Passing null for the wallpaper path causes Windows to refresh with the current wallpaper
+        let _ = SystemParametersInfoW(
+            SPI_SETDESKWALLPAPER,
+            0,
+            None,
+            SPIF_UPDATEINIFILE,
+        );
+    }
+}
+
+/// Attach a window to WorkerW as a child window
+///
+/// This makes the window truly part of the desktop, immune to window managers.
+fn attach_to_worker_w(hwnd: HWND, worker_w: HWND, verbose: bool) -> WallpaperResult<()> {
+    unsafe {
+        if verbose {
+            println!("[INFO] Attaching window to WorkerW...");
+        }
+
+        // Set window style to WS_CHILD (required for SetParent)
+        // Also remove any popup/overlapped styles
+        let style = WS_CHILD.0 as i32;
+        SetWindowLongW(hwnd, GWL_STYLE, style);
+
+        if verbose {
+            println!("[INFO] Set WS_CHILD style");
+        }
+
+        // Set extended styles for wallpaper behavior
+        let ex_style = WS_EX_TOOLWINDOW.0      // Hide from taskbar
+            | WS_EX_NOACTIVATE.0               // Never receive focus
+            | WS_EX_TRANSPARENT.0              // Click-through
+            | WS_EX_LAYERED.0;                 // Enable layered window
+        SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style as i32);
+
+        if verbose {
+            println!("[INFO] Applied extended styles (TOOLWINDOW, NOACTIVATE, TRANSPARENT, LAYERED)");
+        }
+
+        // Set layered window attributes (nearly fully opaque)
+        let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 254, LWA_ALPHA);
+
+        // Attach to WorkerW using SetParent
+        let result = SetParent(hwnd, worker_w);
+        if result.0 == 0 {
+            return Err(WallpaperError::WindowCreationFailed(
+                "SetParent to WorkerW failed".to_string(),
+            ));
+        }
+
+        if verbose {
+            println!("[INFO] Successfully attached to WorkerW");
+        }
+
+        Ok(())
+    }
+}
 
 /// Create and run wallpaper windows for multiple displays with IPC support
 ///
@@ -78,6 +260,9 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         start_ipc_processor(rx, ipc_shutdown, verbose);
     }
 
+    // Setup desktop layer (WorkerW technique) for proper wallpaper embedding
+    let desktop_layer = setup_desktop_layer(verbose);
+
     // Create event loop
     let event_loop = EventLoop::new();
 
@@ -101,7 +286,8 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         }
 
         // Build the window using full display dimensions (not work area)
-        // This allows the wallpaper to extend behind the taskbar
+        // CRITICAL: Create window as HIDDEN first to prevent window managers from capturing it
+        // We'll show it after attaching to WorkerW
         let window = WindowBuilder::new()
             .with_title(format!("WebWallpaper - Display {}", config.display.index))
             .with_position(PhysicalPosition::new(
@@ -115,7 +301,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             .with_decorations(false)
             .with_resizable(false)
             .with_always_on_top(false)
-            .with_visible(true)
+            .with_visible(false)  // Hidden initially!
             .build(&event_loop)
             .map_err(|e| WallpaperError::WindowCreationFailed(e.to_string()))?;
 
@@ -158,28 +344,39 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
 
     if verbose {
         println!(
-            "[INFO] All {} wallpaper window(s) created successfully",
+            "[INFO] All {} wallpaper window(s) created (hidden)",
             windows_and_webviews.len()
         );
-        println!("[INFO] Waiting for windows to fully initialize before applying wallpaper styles...");
+        println!("[INFO] Attaching to desktop and showing windows...");
     }
 
-    // CRITICAL: Wait for windows to fully initialize before applying styles
-    // This delay is essential to prevent window managers (like komorebi) from
-    // capturing and managing our window. The Python implementation uses 1 second.
-    std::thread::sleep(Duration::from_millis(1000));
+    // Short delay for WebView initialization
+    std::thread::sleep(Duration::from_millis(500));
 
-    // Now apply all wallpaper styles and set exact position/size after the delay
-    for (_, _, hwnd, x, y, width, height) in &windows_and_webviews {
-        if let Err(e) = apply_wallpaper_styles(*hwnd, verbose) {
-            if verbose {
-                println!("[WARN] Failed to apply wallpaper styles: {}", e);
+    // Attach to WorkerW BEFORE showing windows - this prevents komorebi from ever seeing them
+    for (window, _, hwnd, x, y, width, height) in &windows_and_webviews {
+        // Apply wallpaper styles based on whether we have WorkerW
+        if let Some(ref layer) = desktop_layer {
+            // Use WorkerW technique - attach as child of WorkerW
+            if let Err(e) = attach_to_worker_w(*hwnd, layer.worker_w, verbose) {
+                if verbose {
+                    println!("[WARN] Failed to attach to WorkerW: {}", e);
+                    println!("[INFO] Falling back to standard wallpaper styles...");
+                }
+                // Fallback to standard styles
+                let _ = apply_wallpaper_styles(*hwnd, verbose);
+            }
+        } else {
+            // No WorkerW available, use standard styles
+            if let Err(e) = apply_wallpaper_styles(*hwnd, verbose) {
+                if verbose {
+                    println!("[WARN] Failed to apply wallpaper styles: {}", e);
+                }
             }
         }
 
-        // Use SetWindowPos to set the position and size after applying styles
+        // Set position and size, then show the window
         // Offset by -1 to hide the 1-pixel WebView2 border on top/left edges
-        // This also helps prevent overflow to adjacent displays
         unsafe {
             let _ = SetWindowPos(
                 *hwnd,
@@ -191,25 +388,39 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
         }
+
+        // Also use tao's set_visible to ensure proper state
+        window.set_visible(true);
     }
 
-    // Apply Z-order again after a short additional delay
-    std::thread::sleep(Duration::from_millis(200));
-    for (_, _, hwnd, _, _, _, _) in &windows_and_webviews {
-        apply_z_order(*hwnd, false);
+    // Apply Z-order again after a short delay (only if not using WorkerW)
+    if desktop_layer.is_none() {
+        std::thread::sleep(Duration::from_millis(200));
+        for (_, _, hwnd, _, _, _, _) in &windows_and_webviews {
+            apply_z_order(*hwnd, false);
+        }
     }
 
     if verbose {
         println!("[INFO] Wallpaper is now running. Press Ctrl+C to stop.");
     }
 
+    // Track if we're using WorkerW for cleanup
+    let using_worker_w = desktop_layer.is_some();
+
     // Run the event loop with polling to check shutdown flag
     event_loop.run(move |event, _, control_flow| {
         // Check shutdown flag periodically
         if shutdown_flag.load(Ordering::Relaxed) {
             if verbose {
-                println!("[INFO] Shutdown flag detected, closing windows...");
+                println!("[INFO] Shutdown flag detected, closing...");
             }
+
+            // Refresh desktop to clear any ghost images from WorkerW
+            if using_worker_w {
+                refresh_desktop(verbose);
+            }
+
             ipc_server.shutdown();
             *control_flow = ControlFlow::Exit;
             return;
@@ -230,6 +441,9 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
+                if using_worker_w {
+                    refresh_desktop(verbose);
+                }
                 ipc_server.shutdown();
                 *control_flow = ControlFlow::Exit;
             }
