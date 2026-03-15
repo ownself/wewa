@@ -75,6 +75,37 @@ fn is_url(input: &str) -> bool {
     input.starts_with("http://") || input.starts_with("https://") || input.starts_with("file://")
 }
 
+/// Transform special URLs for better wallpaper experience
+/// Currently supports:
+/// - ShaderToy: converts view URLs to fullscreen embed URLs
+fn transform_url(url: &str, verbose: bool) -> String {
+    // ShaderToy: https://www.shadertoy.com/view/XXXXX -> embed format
+    if url.contains("shadertoy.com/view/") {
+        // Extract shader ID from URL
+        if let Some(id_start) = url.find("/view/") {
+            let id_part = &url[id_start + 6..];
+            // Extract just the ID (stop at ? or end)
+            let shader_id = id_part.split(&['?', '#', '/'][..]).next().unwrap_or(id_part);
+
+            if !shader_id.is_empty() {
+                let embed_url = format!(
+                    "https://www.shadertoy.com/embed/{}?gui=false&t=0&paused=false&muted=true",
+                    shader_id
+                );
+                if verbose {
+                    println!("[INFO] Transformed ShaderToy URL to embed format:");
+                    println!("[INFO]   Original: {}", url);
+                    println!("[INFO]   Embed: {}", embed_url);
+                }
+                return embed_url;
+            }
+        }
+    }
+
+    // No transformation needed
+    url.to_string()
+}
+
 /// Strip Windows extended path prefix (\\?\) from a path
 /// This prefix is added by canonicalize() on Windows but can cause issues
 #[cfg(target_os = "windows")]
@@ -229,11 +260,12 @@ fn handle_start(
 
     // Determine the URL to load
     let (url, server): (String, Option<LocalServer>) = if is_url(url_or_path) {
-        // It's already a URL
+        // It's already a URL - apply transformations for special sites
         if verbose {
             println!("[INFO] Input is a URL");
         }
-        (url_or_path.to_string(), None)
+        let transformed = transform_url(url_or_path, verbose);
+        (transformed, None)
     } else {
         // It's a local file path - need to start HTTP server
         if verbose {
