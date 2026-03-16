@@ -2657,6 +2657,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
+ "cocoa",
+ "core-graphics",
  "ctrlc",
  "dirs",
  "gdk",
