@@ -45,6 +45,10 @@ windows = { version = "0.52", features = [
     "Win32_System_LibraryLoader"
 ]}
 
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.26"
+core-graphics = "0.24"
+
 [target.'cfg(target_os = "linux")'.dependencies]
 gdk = { version = "0.18", features = ["v3_24"] }
 glib = "0.18"

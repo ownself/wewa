@@ -3,12 +3,12 @@
 //! Uses platform-specific local IPC between the CLI and running wallpaper instances.
 //! Protocol: Simple text-based commands (STOP:N, STOP:ALL, PING)
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver};
@@ -96,7 +96,7 @@ impl IpcResponse {
 /// Named pipe path for IPC
 pub const PIPE_NAME: &str = r"\\.\pipe\webwallpaper_control";
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 fn socket_path() -> PathBuf {
     std::env::temp_dir()
         .join("webwallpaper")
@@ -185,7 +185,7 @@ impl IpcServer {
     }
 
     /// Start the IPC server in a background thread
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     pub fn start(&mut self) -> io::Result<()> {
         let shutdown = self.shutdown.clone();
         let (tx, rx) = mpsc::channel::<IpcCommand>();
@@ -285,7 +285,7 @@ impl IpcClient {
     }
 
     /// Send a command to the IPC server and get response
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     pub fn send_command(command: &IpcCommand) -> io::Result<IpcResponse> {
         let path = socket_path();
         let stream = UnixStream::connect(&path).map_err(|e| {
@@ -332,7 +332,7 @@ where
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid response"))
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 fn handle_unix_client(stream: UnixStream, tx: &mpsc::Sender<IpcCommand>) -> io::Result<()> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut line = String::new();
