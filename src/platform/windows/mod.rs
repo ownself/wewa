@@ -80,16 +80,3 @@ pub fn is_webview2_available() -> bool {
     false
 }
 
-/// Print a helpful error message when WebView2 is not available
-pub fn print_webview2_error() {
-    eprintln!("error: WebView2 runtime not available");
-    eprintln!();
-    eprintln!("WebView2 is required to display web content as wallpaper.");
-    eprintln!();
-    eprintln!("Installation options:");
-    eprintln!("  1. Install Microsoft Edge (includes WebView2)");
-    eprintln!("  2. Download WebView2 Runtime directly from:");
-    eprintln!("     https://developer.microsoft.com/microsoft-edge/webview2/");
-    eprintln!();
-    eprintln!("Note: Windows 10 (April 2018+) and Windows 11 typically have WebView2 pre-installed.");
-}

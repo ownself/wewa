@@ -127,7 +127,7 @@ impl IpcServer {
     #[cfg(target_os = "windows")]
     pub fn start(&mut self) -> io::Result<()> {
         use interprocess::os::windows::named_pipe::{
-            pipe_mode, PipeListenerOptions, PipeMode, PipeStream,
+            pipe_mode, PipeListenerOptions, PipeMode,
         };
 
         let shutdown = self.shutdown.clone();
@@ -315,6 +315,7 @@ impl IpcClient {
     }
 }
 
+#[cfg(unix)]
 fn send_and_receive<T>(stream: T, command: &IpcCommand) -> io::Result<IpcResponse>
 where
     T: io::Read + Write,

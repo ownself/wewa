@@ -32,6 +32,7 @@ pub type WallpaperResult<T> = Result<T, WallpaperError>;
 
 /// Errors that can occur during wallpaper operations
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum WallpaperError {
     /// Failed to create the webview window
     WindowCreationFailed(String),

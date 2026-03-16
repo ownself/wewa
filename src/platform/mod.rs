@@ -38,6 +38,7 @@ pub type PlatformResult<T> = Result<T, PlatformError>;
 
 /// Platform-specific errors
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum PlatformError {
     /// Windows-specific error
     #[cfg(target_os = "windows")]

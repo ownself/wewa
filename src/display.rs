@@ -58,11 +58,13 @@ impl Display {
     }
 
     /// Get the full display rectangle (x, y, width, height)
+    #[allow(dead_code)]
     pub fn full_rect(&self) -> (i32, i32, u32, u32) {
         (self.x, self.y, self.width, self.height)
     }
 
     /// Get the work area rectangle (x, y, width, height)
+    #[allow(dead_code)]
     pub fn work_rect(&self) -> (i32, i32, u32, u32) {
         (self.work_x, self.work_y, self.work_width, self.work_height)
     }
@@ -89,6 +91,7 @@ pub fn find_display_by_index(displays: &[Display], index: u32) -> Option<&Displa
 }
 
 /// Get the primary display from a list of displays
+#[allow(dead_code)]
 pub fn find_primary_display(displays: &[Display]) -> Option<&Display> {
     displays.iter().find(|d| d.is_primary)
 }
