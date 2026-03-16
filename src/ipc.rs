@@ -94,6 +94,7 @@ impl IpcResponse {
 }
 
 /// Named pipe path for IPC
+#[cfg(target_os = "windows")]
 pub const PIPE_NAME: &str = r"\\.\pipe\webwallpaper_control";
 
 #[cfg(unix)]
