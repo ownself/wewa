@@ -161,6 +161,44 @@ fn refresh_desktop(verbose: bool) {
     }
 }
 
+/// Clean up all wallpaper windows before exit
+///
+/// This explicitly hides windows, detaches them from WorkerW, and destroys them
+/// to prevent ghost window frames from remaining on screen after the process exits.
+fn cleanup_windows(
+    windows_and_webviews: &[(Window, WebView, HWND, i32, i32, u32, u32)],
+    using_worker_w: bool,
+    verbose: bool,
+) {
+    use windows::Win32::UI::WindowsAndMessaging::ShowWindow;
+    use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
+    use windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
+
+    for (_window, _, hwnd, _, _, _, _) in windows_and_webviews {
+        unsafe {
+            // 1. Hide the window immediately to prevent visual artifacts
+            let _ = ShowWindow(*hwnd, SW_HIDE);
+
+            // 2. Detach from WorkerW to prevent orphaned child window artifacts
+            if using_worker_w {
+                let _ = SetParent(*hwnd, HWND(0));
+            }
+
+            // 3. Explicitly destroy the window
+            let _ = DestroyWindow(*hwnd);
+        }
+
+        if verbose {
+            println!("[INFO] Cleaned up window {:?}", hwnd);
+        }
+    }
+
+    // 4. Refresh desktop wallpaper to clear any remaining WorkerW remnants
+    if using_worker_w {
+        refresh_desktop(verbose);
+    }
+}
+
 /// Attach a window to WorkerW as a child window
 ///
 /// This makes the window truly part of the desktop, immune to window managers.
@@ -407,6 +445,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
 
     // Track if we're using WorkerW for cleanup
     let using_worker_w = desktop_layer.is_some();
+    let mut cleaned_up = false;
 
     // Run the event loop with polling to check shutdown flag
     event_loop.run(move |event, _, control_flow| {
@@ -416,9 +455,9 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
                 println!("[INFO] Shutdown flag detected, closing...");
             }
 
-            // Refresh desktop to clear any ghost images from WorkerW
-            if using_worker_w {
-                refresh_desktop(verbose);
+            if !cleaned_up {
+                cleanup_windows(&windows_and_webviews, using_worker_w, verbose);
+                cleaned_up = true;
             }
 
             ipc_server.shutdown();
@@ -441,11 +480,19 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                if using_worker_w {
-                    refresh_desktop(verbose);
+                if !cleaned_up {
+                    cleanup_windows(&windows_and_webviews, using_worker_w, verbose);
+                    cleaned_up = true;
                 }
                 ipc_server.shutdown();
                 *control_flow = ControlFlow::Exit;
+            }
+            Event::LoopDestroyed => {
+                // Final cleanup opportunity - ensures no ghost windows remain
+                if !cleaned_up {
+                    cleanup_windows(&windows_and_webviews, using_worker_w, verbose);
+                    cleaned_up = true;
+                }
             }
             Event::WindowEvent {
                 event: WindowEvent::Destroyed,
