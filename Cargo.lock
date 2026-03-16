@@ -2666,6 +2666,7 @@ dependencies = [
  "gtk",
  "gtk-layer-shell",
  "interprocess",
+ "objc",
  "serde",
  "serde_json",
  "tao",

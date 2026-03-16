@@ -5,12 +5,13 @@
 
 // The `cocoa` crate marks its API as deprecated in favor of `objc2-app-kit`,
 // but `tao` still depends on `cocoa`, so we suppress these warnings here.
-#![allow(deprecated)]
+#![allow(deprecated, unexpected_cfgs)]
 
 use crate::ipc::{IpcCommand, IpcServer};
 use crate::wallpaper::{WallpaperConfig, WallpaperError, WallpaperResult};
 use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
 use cocoa::base::{id, YES};
+use objc::{msg_send, sel, sel_impl};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -117,14 +118,30 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         // Apply desktop-level styles via the raw NSWindow pointer
         apply_wallpaper_styles(&window, verbose)?;
 
-        let webview = WebViewBuilder::new(&window)
+        let mut builder = WebViewBuilder::new(&window)
             .with_url(&config.url)
             .with_devtools(false)
-            .with_background_color((0, 0, 0, 255))
-            .build()
-            .map_err(|e| {
-                WallpaperError::WindowCreationFailed(format!("WebView error: {}", e))
-            })?;
+            .with_background_color((0, 0, 0, 255));
+
+        // On Retina displays, override devicePixelRatio to 1 so that
+        // WebGL canvases and other pixel-ratio-aware content render at
+        // 1× resolution instead of 2×, cutting GPU workload by ~4×.
+        // The WKWebView frame stays full-size — only the web content's
+        // own rendering resolution is reduced.
+        if is_retina(&window) {
+            builder = builder.with_initialization_script(
+                "Object.defineProperty(window,'devicePixelRatio',{get:function(){return 1}});"
+            );
+            if verbose {
+                println!(
+                    "[INFO] Retina detected: injecting devicePixelRatio=1 for reduced render resolution"
+                );
+            }
+        }
+
+        let webview = builder.build().map_err(|e| {
+            WallpaperError::WindowCreationFailed(format!("WebView error: {}", e))
+        })?;
 
         window.set_visible(true);
 
@@ -217,6 +234,13 @@ fn apply_wallpaper_styles(window: &Window, verbose: bool) -> WallpaperResult<()>
     }
 
     Ok(())
+}
+
+/// Check whether the window is on a Retina (HiDPI) display.
+fn is_retina(window: &Window) -> bool {
+    let ns_window = window.ns_window() as id;
+    let scale: f64 = unsafe { msg_send![ns_window, backingScaleFactor] };
+    scale > 1.0
 }
 
 /// Background thread that forwards IPC commands to the shutdown flag.
