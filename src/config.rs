@@ -11,20 +11,14 @@ use std::path::PathBuf;
 /// Application configuration
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Default HTTP server port for serving local files
-    pub default_port: u16,
     /// Directory for storing instance tracking files
     pub instance_dir: PathBuf,
-    /// Named pipe name for IPC
-    pub pipe_name: String,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            default_port: 8080,
             instance_dir: Self::default_instance_dir(),
-            pipe_name: "webwallpaper_control".to_string(),
         }
     }
 }
@@ -47,12 +41,6 @@ impl Config {
     pub fn instance_file_path(&self, display_index: u32) -> PathBuf {
         self.instance_dir
             .join(format!("display_{}.json", display_index))
-    }
-
-    /// Get the named pipe path (Windows format)
-    #[cfg(target_os = "windows")]
-    pub fn pipe_path(&self) -> String {
-        format!(r"\\.\pipe\{}", self.pipe_name)
     }
 
     /// List all instance files in the instance directory
@@ -116,6 +104,7 @@ impl WallpaperInstance {
     }
 
     /// Load an instance from a JSON file
+    #[allow(dead_code)]
     pub fn load(config: &Config, display_index: u32) -> io::Result<Self> {
         let path = config.instance_file_path(display_index);
         let json = fs::read_to_string(path)?;
@@ -132,6 +121,7 @@ impl WallpaperInstance {
     }
 
     /// Load all instances from the instance directory
+    #[allow(dead_code)]
     pub fn load_all(config: &Config) -> io::Result<Vec<Self>> {
         let files = config.list_instance_files()?;
         let mut instances = Vec::new();
@@ -155,8 +145,7 @@ mod tests {
     #[test]
     fn test_config_default() {
         let config = Config::default();
-        assert_eq!(config.default_port, 8080);
-        assert_eq!(config.pipe_name, "webwallpaper_control");
+        assert!(config.instance_dir.to_string_lossy().contains("webwallpaper"));
     }
 
     #[test]
