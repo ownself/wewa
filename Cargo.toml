@@ -48,19 +48,12 @@ windows = { version = "0.52", features = [
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"
 core-graphics = "0.24"
-objc = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gdk = { version = "0.18", features = ["v3_24"] }
 glib = "0.18"
 gtk = { version = "0.18", features = ["v3_24"] }
 gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
-
-[lints.rust]
-# The `objc` 0.2 crate's `msg_send!` / `sel_impl!` macros use
-# `cfg(feature = "cargo-clippy")` internally, which triggers this
-# warning on newer Rust toolchains. Safe to suppress globally.
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
 
 [profile.release]
 opt-level = 3
