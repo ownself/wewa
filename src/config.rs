@@ -145,7 +145,10 @@ mod tests {
     #[test]
     fn test_config_default() {
         let config = Config::default();
-        assert!(config.instance_dir.to_string_lossy().contains("webwallpaper"));
+        assert!(config
+            .instance_dir
+            .to_string_lossy()
+            .contains("webwallpaper"));
     }
 
     #[test]

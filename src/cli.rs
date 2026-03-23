@@ -29,6 +29,10 @@ pub struct CliArgs {
     #[arg(short = 'p', long, default_value = "8080")]
     pub port: u16,
 
+    /// Shader render scale for .shader inputs (default: 1.0)
+    #[arg(long, default_value = "1.0")]
+    pub scale: f32,
+
     /// Enable verbose output
     #[arg(short = 'v', long)]
     pub verbose: bool,
@@ -51,6 +55,7 @@ impl CliArgs {
                 url_or_path: url_or_path.clone(),
                 display: self.display,
                 port: self.port,
+                scale: self.scale,
             }
         } else {
             CommandMode::ShowHelp
@@ -66,6 +71,7 @@ pub enum CommandMode {
         url_or_path: String,
         display: Option<u32>,
         port: u16,
+        scale: f32,
     },
     /// Stop wallpaper on specific display
     Stop(u32),
@@ -104,5 +110,11 @@ mod tests {
     fn test_parse_display_flag() {
         let args = CliArgs::parse_from(["webwallpaper", "https://example.com", "-d", "1"]);
         assert_eq!(args.display, Some(1));
+    }
+
+    #[test]
+    fn test_parse_scale_flag() {
+        let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--scale", "0.5"]);
+        assert_eq!(args.scale, 0.5);
     }
 }

@@ -190,7 +190,10 @@ fn create_wallpaper_window(
     Ok((window, webview))
 }
 
-fn monitor_for_display(gdk_display: &gdk::Display, target: &crate::display::Display) -> Option<gdk::Monitor> {
+fn monitor_for_display(
+    gdk_display: &gdk::Display,
+    target: &crate::display::Display,
+) -> Option<gdk::Monitor> {
     if let Some(monitor) = gdk_display.monitor(target.index as i32) {
         return Some(monitor);
     }

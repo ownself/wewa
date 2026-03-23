@@ -79,4 +79,3 @@ pub fn is_webview2_available() -> bool {
 
     false
 }
-

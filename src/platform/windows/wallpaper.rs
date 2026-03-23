@@ -17,6 +17,7 @@ use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 use tao::platform::windows::WindowExtWindows;
 use tao::window::{Window, WindowBuilder};
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::{BOOL, COLORREF, HWND, LPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GetWindowLongW, SendMessageTimeoutW,
@@ -26,7 +27,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SWP_SHOWWINDOW, WS_CHILD, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
     WS_EX_TRANSPARENT, WS_POPUP,
 };
-use windows::core::PCWSTR;
 use wry::{WebView, WebViewBuilder};
 
 // LWA_ALPHA constant
@@ -87,10 +87,7 @@ fn setup_desktop_layer(verbose: bool) -> Option<DesktopLayer> {
         let mut worker_w = HWND(0);
         let worker_w_ptr = &mut worker_w as *mut HWND;
 
-        let _ = EnumWindows(
-            Some(enum_windows_callback),
-            LPARAM(worker_w_ptr as isize),
-        );
+        let _ = EnumWindows(Some(enum_windows_callback), LPARAM(worker_w_ptr as isize));
 
         if worker_w.0 == 0 {
             if verbose {
@@ -103,10 +100,7 @@ fn setup_desktop_layer(verbose: bool) -> Option<DesktopLayer> {
             println!("[INFO] Found WorkerW: {:?}", worker_w);
         }
 
-        Some(DesktopLayer {
-            worker_w,
-            progman,
-        })
+        Some(DesktopLayer { worker_w, progman })
     }
 }
 
@@ -152,12 +146,7 @@ fn refresh_desktop(verbose: bool) {
         }
         // This triggers Windows to redraw the desktop wallpaper
         // Passing null for the wallpaper path causes Windows to refresh with the current wallpaper
-        let _ = SystemParametersInfoW(
-            SPI_SETDESKWALLPAPER,
-            0,
-            None,
-            SPIF_UPDATEINIFILE,
-        );
+        let _ = SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, None, SPIF_UPDATEINIFILE);
     }
 }
 
@@ -170,9 +159,9 @@ fn cleanup_windows(
     using_worker_w: bool,
     verbose: bool,
 ) {
+    use windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
     use windows::Win32::UI::WindowsAndMessaging::ShowWindow;
     use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
-    use windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
 
     for (_window, _, hwnd, _, _, _, _) in windows_and_webviews {
         unsafe {
@@ -221,11 +210,13 @@ fn attach_to_worker_w(hwnd: HWND, worker_w: HWND, verbose: bool) -> WallpaperRes
         let ex_style = WS_EX_TOOLWINDOW.0      // Hide from taskbar
             | WS_EX_NOACTIVATE.0               // Never receive focus
             | WS_EX_TRANSPARENT.0              // Click-through
-            | WS_EX_LAYERED.0;                 // Enable layered window
+            | WS_EX_LAYERED.0; // Enable layered window
         SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style as i32);
 
         if verbose {
-            println!("[INFO] Applied extended styles (TOOLWINDOW, NOACTIVATE, TRANSPARENT, LAYERED)");
+            println!(
+                "[INFO] Applied extended styles (TOOLWINDOW, NOACTIVATE, TRANSPARENT, LAYERED)"
+            );
         }
 
         // Set layered window attributes (nearly fully opaque)
@@ -316,10 +307,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             println!("[INFO] URL: {}", config.url);
             println!(
                 "[INFO] Position: ({}, {}), Size: {}x{}",
-                config.display.x,
-                config.display.y,
-                config.display.width,
-                config.display.height
+                config.display.x, config.display.y, config.display.width, config.display.height
             );
         }
 
@@ -328,10 +316,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         // We'll show it after attaching to WorkerW
         let window = WindowBuilder::new()
             .with_title(format!("WebWallpaper - Display {}", config.display.index))
-            .with_position(PhysicalPosition::new(
-                config.display.x,
-                config.display.y,
-            ))
+            .with_position(PhysicalPosition::new(config.display.x, config.display.y))
             .with_inner_size(PhysicalSize::new(
                 config.display.width,
                 config.display.height,
@@ -339,7 +324,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             .with_decorations(false)
             .with_resizable(false)
             .with_always_on_top(false)
-            .with_visible(false)  // Hidden initially!
+            .with_visible(false) // Hidden initially!
             .build(&event_loop)
             .map_err(|e| WallpaperError::WindowCreationFailed(e.to_string()))?;
 
@@ -360,12 +345,15 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         let webview = WebViewBuilder::new(&window)
             .with_url(&config.url)
             .with_devtools(false)
-            .with_background_color((0, 0, 0, 255))  // Black background
+            .with_background_color((0, 0, 0, 255)) // Black background
             .build()
             .map_err(|e| WallpaperError::WindowCreationFailed(format!("WebView error: {}", e)))?;
 
         if verbose {
-            println!("[INFO] WebView created for display {}", config.display.index);
+            println!(
+                "[INFO] WebView created for display {}",
+                config.display.index
+            );
         }
 
         // Store window info along with display coordinates for later positioning
@@ -506,11 +494,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
 }
 
 /// Start a thread to process IPC commands
-fn start_ipc_processor(
-    rx: Receiver<IpcCommand>,
-    shutdown_flag: Arc<AtomicBool>,
-    verbose: bool,
-) {
+fn start_ipc_processor(rx: Receiver<IpcCommand>, shutdown_flag: Arc<AtomicBool>, verbose: bool) {
     std::thread::spawn(move || {
         while let Ok(cmd) = rx.recv() {
             if verbose {
@@ -616,7 +600,9 @@ fn apply_z_order(hwnd: HWND, verbose: bool) {
 
         if desktop_hwnd.0 != 0 {
             if verbose {
-                println!("[INFO] Found desktop window (Progman), positioning after it in Z-order...");
+                println!(
+                    "[INFO] Found desktop window (Progman), positioning after it in Z-order..."
+                );
             }
             // Place our window right after the desktop window in Z-order
             // This puts us in front of the desktop but behind all other windows

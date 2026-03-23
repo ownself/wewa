@@ -282,11 +282,23 @@ mod tests {
 
     #[test]
     fn test_get_content_type() {
-        assert_eq!(get_content_type(Path::new("test.html")), "text/html; charset=utf-8");
-        assert_eq!(get_content_type(Path::new("style.css")), "text/css; charset=utf-8");
-        assert_eq!(get_content_type(Path::new("app.js")), "application/javascript; charset=utf-8");
+        assert_eq!(
+            get_content_type(Path::new("test.html")),
+            "text/html; charset=utf-8"
+        );
+        assert_eq!(
+            get_content_type(Path::new("style.css")),
+            "text/css; charset=utf-8"
+        );
+        assert_eq!(
+            get_content_type(Path::new("app.js")),
+            "application/javascript; charset=utf-8"
+        );
         assert_eq!(get_content_type(Path::new("image.png")), "image/png");
-        assert_eq!(get_content_type(Path::new("unknown.xyz")), "application/octet-stream");
+        assert_eq!(
+            get_content_type(Path::new("unknown.xyz")),
+            "application/octet-stream"
+        );
     }
 
     #[test]
