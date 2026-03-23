@@ -127,9 +127,7 @@ impl IpcServer {
     /// Start the IPC server in a background thread
     #[cfg(target_os = "windows")]
     pub fn start(&mut self) -> io::Result<()> {
-        use interprocess::os::windows::named_pipe::{
-            pipe_mode, PipeListenerOptions, PipeMode,
-        };
+        use interprocess::os::windows::named_pipe::{pipe_mode, PipeListenerOptions, PipeMode};
 
         let shutdown = self.shutdown.clone();
         let (tx, rx) = mpsc::channel::<IpcCommand>();
@@ -264,8 +262,9 @@ impl IpcClient {
         use interprocess::os::windows::named_pipe::{pipe_mode, PipeStream};
 
         // Connect to the named pipe
-        let stream = PipeStream::<pipe_mode::Bytes, pipe_mode::Bytes>::connect_by_path(PIPE_NAME)
-            .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e.to_string()))?;
+        let stream =
+            PipeStream::<pipe_mode::Bytes, pipe_mode::Bytes>::connect_by_path(PIPE_NAME)
+                .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e.to_string()))?;
 
         // Split into reader and writer
         let (recv_half, send_half) = stream.split();

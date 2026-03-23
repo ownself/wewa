@@ -9,6 +9,7 @@ mod display;
 mod ipc;
 mod platform;
 mod server;
+mod shader;
 mod wallpaper;
 
 use cli::{CliArgs, CommandMode};
@@ -49,7 +50,8 @@ fn main() {
             url_or_path,
             display,
             port,
-        } => handle_start(&config, &url_or_path, display, port, args.verbose),
+            scale,
+        } => handle_start(&config, &url_or_path, display, port, scale, args.verbose),
 
         CommandMode::Stop(display_index) => handle_stop(&config, display_index, args.verbose),
 
@@ -84,7 +86,10 @@ fn transform_url(url: &str, verbose: bool) -> String {
         if let Some(id_start) = url.find("/view/") {
             let id_part = &url[id_start + 6..];
             // Extract just the ID (stop at ? or end)
-            let shader_id = id_part.split(&['?', '#', '/'][..]).next().unwrap_or(id_part);
+            let shader_id = id_part
+                .split(&['?', '#', '/'][..])
+                .next()
+                .unwrap_or(id_part);
 
             if !shader_id.is_empty() {
                 let embed_url = format!(
@@ -172,6 +177,7 @@ fn handle_start(
     url_or_path: &str,
     display: Option<u32>,
     port: u16,
+    scale: f32,
     verbose: bool,
 ) -> i32 {
     if verbose {
@@ -179,7 +185,16 @@ fn handle_start(
         println!("[INFO] URL/Path: {}", url_or_path);
         println!("[INFO] Display: {:?}", display);
         println!("[INFO] Port: {}", port);
+        println!("[INFO] Scale: {:.2}", scale);
     }
+
+    let scale = match shader::validate_scale(scale) {
+        Ok(scale) => scale,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return exit_codes::GENERAL_ERROR;
+        }
+    };
 
     // Enumerate displays
     let displays: Vec<crate::display::Display> = match platform::enumerate_displays() {
@@ -222,7 +237,10 @@ fn handle_start(
             return exit_codes::GENERAL_ERROR;
         }
         if verbose {
-            println!("[INFO] No --display specified, applying to all {} display(s)", displays.len());
+            println!(
+                "[INFO] No --display specified, applying to all {} display(s)",
+                displays.len()
+            );
         }
         displays.clone()
     };
@@ -253,6 +271,7 @@ fn handle_start(
     }
 
     // Determine the URL to load
+    let mut shader_bundle: Option<shader::ShaderBundle> = None;
     let (url, server): (String, Option<LocalServer>) = if is_url(url_or_path) {
         // It's already a URL - apply transformations for special sites
         if verbose {
@@ -266,12 +285,31 @@ fn handle_start(
             println!("[INFO] Input is a local path, starting HTTP server...");
         }
 
-        // Resolve the path
-        let (root_dir, filename) = match resolve_local_path(url_or_path) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("error: {}", e);
-                return exit_codes::GENERAL_ERROR;
+        let local_path = Path::new(url_or_path);
+        let (root_dir, filename) = if shader::is_shader_file(local_path) {
+            if verbose {
+                println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
+            }
+
+            let bundle = match shader::create_shader_bundle(local_path, scale) {
+                Ok(bundle) => bundle,
+                Err(e) => {
+                    eprintln!("error: {}", e);
+                    return exit_codes::GENERAL_ERROR;
+                }
+            };
+
+            let root_dir = bundle.root_dir.clone();
+            let entry_file = bundle.entry_file.clone();
+            shader_bundle = Some(bundle);
+            (root_dir, entry_file)
+        } else {
+            match resolve_local_path(url_or_path) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("error: {}", e);
+                    return exit_codes::GENERAL_ERROR;
+                }
             }
         };
 
@@ -311,7 +349,10 @@ fn handle_start(
         let instance = WallpaperInstance::new(target_display.index, url.clone(), server_port);
 
         if let Err(e) = instance.save(config) {
-            eprintln!("[WARN] Failed to save instance file for display {}: {}", target_display.index, e);
+            eprintln!(
+                "[WARN] Failed to save instance file for display {}: {}",
+                target_display.index, e
+            );
         } else if verbose {
             println!(
                 "[INFO] Instance file saved: {:?}",
@@ -333,7 +374,10 @@ fn handle_start(
             target_displays[0].index, url_or_path
         );
     } else {
-        let display_list: Vec<String> = target_displays.iter().map(|d| d.index.to_string()).collect();
+        let display_list: Vec<String> = target_displays
+            .iter()
+            .map(|d| d.index.to_string())
+            .collect();
         println!(
             "Started wallpaper on {} display(s) [{}]: {}",
             target_displays.len(),
@@ -351,12 +395,19 @@ fn handle_start(
             let _ = WallpaperInstance::delete(config, *index);
         }
 
+        if let Some(bundle) = shader_bundle.as_ref() {
+            shader::cleanup_shader_bundle(bundle);
+        }
+
         return exit_codes::GENERAL_ERROR;
     }
 
     // Clean up on exit
     if let Some(s) = server.as_ref() {
         s.shutdown();
+    }
+    if let Some(bundle) = shader_bundle.as_ref() {
+        shader::cleanup_shader_bundle(bundle);
     }
     for index in &display_indices {
         let _ = WallpaperInstance::delete(config, *index);
@@ -395,7 +446,10 @@ fn handle_stop(config: &Config, display_index: u32, verbose: bool) -> i32 {
             }
             // If IPC fails, the process might have crashed - clean up the stale instance file
             let _ = WallpaperInstance::delete(config, display_index);
-            eprintln!("error: Failed to stop wallpaper on display {} (process may have already exited)", display_index);
+            eprintln!(
+                "error: Failed to stop wallpaper on display {} (process may have already exited)",
+                display_index
+            );
             exit_codes::GENERAL_ERROR
         }
     }

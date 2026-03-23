@@ -122,9 +122,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             .with_devtools(false)
             .with_background_color((0, 0, 0, 255))
             .build()
-            .map_err(|e| {
-                WallpaperError::WindowCreationFailed(format!("WebView error: {}", e))
-            })?;
+            .map_err(|e| WallpaperError::WindowCreationFailed(format!("WebView error: {}", e)))?;
 
         window.set_visible(true);
 

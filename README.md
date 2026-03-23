@@ -18,6 +18,7 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 - **Multi-Monitor** — Apply to all displays or target specific ones
 - **Local File Support** — Built-in HTTP server for local HTML/JS/CSS projects
 - **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format
+- **Local `.shader` Support** — Wrap single-pass ShaderToy snippets into a fullscreen WebGL runtime
 - **IPC Control** — Stop wallpapers remotely via named pipes (Windows) or Unix domain sockets (Linux/macOS)
 - **Graceful Shutdown** — Ctrl+C handling with platform-specific cleanup
 
@@ -60,6 +61,12 @@ webwallpaper https://example.com --display 0
 # ShaderToy (auto-converted to fullscreen embed)
 webwallpaper "https://www.shadertoy.com/view/tlVGDt"
 
+# Local ShaderToy-style shader with default full-resolution rendering
+webwallpaper ./octagrams.shader
+
+# Lower shader render scale for better performance
+webwallpaper ./octagrams.shader --scale 0.5
+
 # Local HTML file
 webwallpaper ./my-wallpaper/index.html
 
@@ -87,6 +94,7 @@ webwallpaper --verbose https://example.com
 | `--stop <N>` | | Stop wallpaper on display N |
 | `--stopall` | | Stop all running wallpapers |
 | `--port <PORT>` | `-p` | HTTP server port for local files (default: 8080) |
+| `--scale <FACTOR>` | | Shader render scale for `.shader` inputs (default: 1.0) |
 | `--verbose` | `-v` | Enable verbose output |
 | `--help` | `-h` | Show help message |
 | `--version` | `-V` | Show version |
@@ -96,6 +104,7 @@ webwallpaper --verbose https://example.com
 - **WebView2 not available (Windows)** — Install from [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/)
 - **Layer-shell not available (Linux)** — Ensure you are on a Wayland session with a layer-shell compositor (e.g. Hyprland), and install `libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev`
 - **Port already in use** — Use `--port 9000` to pick a different port
+- **Shader performance is poor** — Use `--scale 0.5` or `--scale 0.75` for `.shader` inputs
 - **Finding display numbers** — Run with `--verbose` to list detected displays
 
 ### Architecture
@@ -129,6 +138,7 @@ MIT
 - **多显示器** — 应用到所有显示器或指定特定显示器
 - **本地文件支持** — 内置 HTTP 服务器，支持本地 HTML/JS/CSS 项目
 - **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式
+- **本地 `.shader` 支持** — 将单文件 ShaderToy 片段包装成全屏 WebGL 运行时
 - **IPC 控制** — 通过命名管道 (Windows) 或 Unix Domain Socket (Linux/macOS) 远程停止壁纸
 - **优雅关闭** — Ctrl+C 处理并执行平台相关清理
 
@@ -171,6 +181,12 @@ webwallpaper https://example.com --display 0
 # ShaderToy（自动转换为全屏嵌入格式）
 webwallpaper "https://www.shadertoy.com/view/tlVGDt"
 
+# 本地 ShaderToy 风格着色器
+webwallpaper ./octagrams.shader
+
+# 降低渲染缩放以提升性能
+webwallpaper ./octagrams.shader --scale 0.5
+
 # 本地 HTML 文件
 webwallpaper ./my-wallpaper/index.html
 
@@ -198,6 +214,7 @@ webwallpaper --verbose https://example.com
 | `--stop <N>` | | 停止显示器 N 上的壁纸 |
 | `--stopall` | | 停止所有运行中的壁纸 |
 | `--port <PORT>` | `-p` | 本地文件 HTTP 服务器端口（默认：8080） |
+| `--scale <FACTOR>` | | `.shader` 输入的渲染缩放（默认：1.0） |
 | `--verbose` | `-v` | 启用详细输出 |
 | `--help` | `-h` | 显示帮助信息 |
 | `--version` | `-V` | 显示版本信息 |
@@ -207,6 +224,7 @@ webwallpaper --verbose https://example.com
 - **WebView2 不可用 (Windows)** — 从 [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/) 安装
 - **Layer-shell 不可用 (Linux)** — 确认在支持 layer-shell 的 Wayland 会话中运行（如 Hyprland），并安装 `libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev`
 - **端口被占用** — 使用 `--port 9000` 指定其他端口
+- **Shader 性能较差** — 对 `.shader` 输入使用 `--scale 0.5` 或 `--scale 0.75`
 - **查找显示器编号** — 使用 `--verbose` 运行以查看检测到的显示器
 
 ### 项目结构
