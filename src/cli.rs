@@ -33,6 +33,10 @@ pub struct CliArgs {
     #[arg(long, default_value = "1.0")]
     pub scale: f32,
 
+    /// Shader time scale for .shader inputs (default: 1.0)
+    #[arg(long, default_value = "1.0")]
+    pub time_scale: f32,
+
     /// Enable verbose output
     #[arg(short = 'v', long)]
     pub verbose: bool,
@@ -56,6 +60,7 @@ impl CliArgs {
                 display: self.display,
                 port: self.port,
                 scale: self.scale,
+                time_scale: self.time_scale,
             }
         } else {
             CommandMode::ShowHelp
@@ -72,6 +77,7 @@ pub enum CommandMode {
         display: Option<u32>,
         port: u16,
         scale: f32,
+        time_scale: f32,
     },
     /// Stop wallpaper on specific display
     Stop(u32),
@@ -116,5 +122,11 @@ mod tests {
     fn test_parse_scale_flag() {
         let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--scale", "0.5"]);
         assert_eq!(args.scale, 0.5);
+    }
+
+    #[test]
+    fn test_parse_time_scale_flag() {
+        let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--time-scale", "0.5"]);
+        assert_eq!(args.time_scale, 0.5);
     }
 }
