@@ -67,6 +67,12 @@ webwallpaper ./octagrams.shader
 # Lower shader render scale for better performance
 webwallpaper ./octagrams.shader --scale 0.5
 
+# Slow down shader animation without changing shader source
+webwallpaper ./octagrams.shader --time-scale 0.5
+
+# Speed up shader animation for comparison or debugging
+webwallpaper ./octagrams.shader --time-scale 2.0
+
 # Local HTML file
 webwallpaper ./my-wallpaper/index.html
 
@@ -95,9 +101,17 @@ webwallpaper --verbose https://example.com
 | `--stopall` | | Stop all running wallpapers |
 | `--port <PORT>` | `-p` | HTTP server port for local files (default: 8080) |
 | `--scale <FACTOR>` | | Shader render scale for `.shader` inputs (default: 1.0) |
+| `--time-scale <FACTOR>` | | Shader animation time scale for `.shader` inputs (default: 1.0) |
 | `--verbose` | `-v` | Enable verbose output |
 | `--help` | `-h` | Show help message |
 | `--version` | `-V` | Show version |
+
+### Shader Tuning
+
+- `--scale` changes render resolution for local `.shader` inputs. Lower values usually improve performance at the cost of sharpness.
+- `--time-scale` changes the speed of the injected `iTime` and `iTimeDelta` values for local `.shader` inputs.
+- Use `--time-scale 1.0` for original speed, values below `1.0` to slow animation down, values above `1.0` to speed it up, and `0` to freeze time for debugging.
+- `--time-scale` avoids editing shader source when you only want to compare animation pacing across different shaders.
 
 ### Troubleshooting
 
@@ -187,6 +201,12 @@ webwallpaper ./octagrams.shader
 # 降低渲染缩放以提升性能
 webwallpaper ./octagrams.shader --scale 0.5
 
+# 不修改 shader 源码，直接放慢动画速度
+webwallpaper ./octagrams.shader --time-scale 0.5
+
+# 加快动画速度，便于对比或调试
+webwallpaper ./octagrams.shader --time-scale 2.0
+
 # 本地 HTML 文件
 webwallpaper ./my-wallpaper/index.html
 
@@ -215,9 +235,17 @@ webwallpaper --verbose https://example.com
 | `--stopall` | | 停止所有运行中的壁纸 |
 | `--port <PORT>` | `-p` | 本地文件 HTTP 服务器端口（默认：8080） |
 | `--scale <FACTOR>` | | `.shader` 输入的渲染缩放（默认：1.0） |
+| `--time-scale <FACTOR>` | | `.shader` 输入的动画时间缩放（默认：1.0） |
 | `--verbose` | `-v` | 启用详细输出 |
 | `--help` | `-h` | 显示帮助信息 |
 | `--version` | `-V` | 显示版本信息 |
+
+### Shader 调节
+
+- `--scale` 用于调整本地 `.shader` 输入的渲染分辨率；值越小通常性能越好，但画面会更模糊。
+- `--time-scale` 用于调整本地 `.shader` 输入注入的 `iTime` 和 `iTimeDelta` 速度。
+- `--time-scale 1.0` 表示原始速度，小于 `1.0` 表示减速，大于 `1.0` 表示加速，`0` 可用于冻结时间以便调试。
+- 当你只是想对比不同 shader 的动画节奏时，`--time-scale` 可以避免逐个修改 shader 源码。
 
 ### 故障排除
 

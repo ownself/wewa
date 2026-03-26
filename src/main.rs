@@ -51,7 +51,16 @@ fn main() {
             display,
             port,
             scale,
-        } => handle_start(&config, &url_or_path, display, port, scale, args.verbose),
+            time_scale,
+        } => handle_start(
+            &config,
+            &url_or_path,
+            display,
+            port,
+            scale,
+            time_scale,
+            args.verbose,
+        ),
 
         CommandMode::Stop(display_index) => handle_stop(&config, display_index, args.verbose),
 
@@ -178,6 +187,7 @@ fn handle_start(
     display: Option<u32>,
     port: u16,
     scale: f32,
+    time_scale: f32,
     verbose: bool,
 ) -> i32 {
     if verbose {
@@ -186,10 +196,19 @@ fn handle_start(
         println!("[INFO] Display: {:?}", display);
         println!("[INFO] Port: {}", port);
         println!("[INFO] Scale: {:.2}", scale);
+        println!("[INFO] Time scale: {:.2}", time_scale);
     }
 
     let scale = match shader::validate_scale(scale) {
         Ok(scale) => scale,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return exit_codes::GENERAL_ERROR;
+        }
+    };
+
+    let time_scale = match shader::validate_time_scale(time_scale) {
+        Ok(time_scale) => time_scale,
         Err(e) => {
             eprintln!("error: {}", e);
             return exit_codes::GENERAL_ERROR;
@@ -291,7 +310,7 @@ fn handle_start(
                 println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
             }
 
-            let bundle = match shader::create_shader_bundle(local_path, scale) {
+            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale) {
                 Ok(bundle) => bundle,
                 Err(e) => {
                     eprintln!("error: {}", e);

@@ -36,7 +36,23 @@ pub fn validate_scale(scale: f32) -> Result<f32, String> {
     Ok(scale)
 }
 
-pub fn create_shader_bundle(shader_path: &Path, scale: f32) -> Result<ShaderBundle, String> {
+pub fn validate_time_scale(time_scale: f32) -> Result<f32, String> {
+    if !time_scale.is_finite() {
+        return Err("Time scale must be a finite number".to_string());
+    }
+
+    if !(0.0..=100.0).contains(&time_scale) {
+        return Err("Time scale must be between 0.0 and 100.0".to_string());
+    }
+
+    Ok(time_scale)
+}
+
+pub fn create_shader_bundle(
+    shader_path: &Path,
+    scale: f32,
+    time_scale: f32,
+) -> Result<ShaderBundle, String> {
     let shader_source = fs::read_to_string(shader_path).map_err(|e| {
         format!(
             "Failed to read shader file {}: {}",
@@ -49,7 +65,7 @@ pub fn create_shader_bundle(shader_path: &Path, scale: f32) -> Result<ShaderBund
         return Err("Shader file must define a ShaderToy-style mainImage() function".to_string());
     }
 
-    let html = build_shader_html(&shader_source, scale)
+    let html = build_shader_html(&shader_source, scale, time_scale)
         .map_err(|e| format!("Failed to build shader HTML: {}", e))?;
 
     let bundle_dir = unique_shader_dir()?;
@@ -83,7 +99,11 @@ fn unique_shader_dir() -> Result<PathBuf, String> {
     )))
 }
 
-fn build_shader_html(shader_source: &str, scale: f32) -> Result<String, serde_json::Error> {
+fn build_shader_html(
+    shader_source: &str,
+    scale: f32,
+    time_scale: f32,
+) -> Result<String, serde_json::Error> {
     let shader_json = serde_json::to_string(shader_source)?;
     let vertex_shader_json = serde_json::to_string(VERTEX_SHADER_SOURCE)?;
 
@@ -156,11 +176,12 @@ fn build_shader_html(shader_source: &str, scale: f32) -> Result<String, serde_js
 </head>
 <body>
   <canvas id="shader"></canvas>
-  <div id="hint">Shader scale {scale:.2}</div>
+  <div id="hint">Shader scale {scale:.2} | time scale {time_scale:.2}</div>
   <pre id="error"></pre>
   <script>
     (() => {{
       const renderScale = {scale};
+      const timeScale = {time_scale};
       const userShaderSource = {shader_json};
       const vertexShaderSource = {vertex_shader_json};
       const canvas = document.getElementById("shader");
@@ -274,8 +295,8 @@ void main() {{
       function render(now) {{
         resize();
 
-        const elapsed = (now - startTime) / 1000;
-        const delta = Math.max(0, (now - lastFrameTime) / 1000);
+        const elapsed = ((now - startTime) / 1000) * timeScale;
+        const delta = Math.max(0, (now - lastFrameTime) / 1000) * timeScale;
         const fps = delta > 0 ? 1 / delta : 0;
         const date = new Date();
         const seconds = date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds() + date.getMilliseconds() / 1000;
@@ -364,15 +385,27 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_time_scale() {
+        assert_eq!(validate_time_scale(1.0).unwrap(), 1.0);
+        assert_eq!(validate_time_scale(0.0).unwrap(), 0.0);
+        assert!(validate_time_scale(-0.1).is_err());
+        assert!(validate_time_scale(101.0).is_err());
+        assert!(validate_time_scale(f32::NAN).is_err());
+    }
+
+    #[test]
     fn test_shader_html_contains_runtime() {
         let html = build_shader_html(
             "void mainImage(out vec4 c, in vec2 f) { c = vec4(1.0); }",
             0.5,
+            1.25,
         )
         .unwrap();
         assert!(html.contains("Shader scale 0.50"));
+        assert!(html.contains("time scale 1.25"));
         assert!(html.contains("mainImage"));
         assert!(html.contains("renderScale = 0.5"));
+        assert!(html.contains("timeScale = 1.25"));
     }
 
     #[test]
@@ -392,7 +425,7 @@ mod tests {
         )
         .unwrap();
 
-        let bundle = create_shader_bundle(&temp_path, 1.0).unwrap();
+        let bundle = create_shader_bundle(&temp_path, 1.0, 1.0).unwrap();
         assert!(bundle.root_dir.join(&bundle.entry_file).exists());
 
         cleanup_shader_bundle(&bundle);
