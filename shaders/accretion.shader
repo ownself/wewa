@@ -15,8 +15,7 @@ void mainImage(out vec4 O, vec2 I)
           //Raymarch iterator
           i;
     //Clear fragColor and raymarch 20 steps
-    O = vec4(0.0);
-    for(i = 1.0; i <= 20.0; i += 1.0)
+    for(O*=i; i++<2e1; )
     {
         //Sample point (from ray direction)
         vec3 p = z*normalize(vec3(I+I,0)-iResolution.xyx)+.1;
@@ -24,8 +23,8 @@ void mainImage(out vec4 O, vec2 I)
         //Polar coordinates and additional transformations
         p = vec3(atan(p.y/.2,p.x)*2., p.z/3., length(p.xy)-5.-z*.2);
 
-        //Apply turbulence and refraction effect (d post-incremented: body uses d=1..7)
-        for(d = 1.0; d <= 7.0; d += 1.0)
+        //Apply turbulence and refraction effect
+        for(d=0.; d++<7.;)
             p += sin(p.yzx*d+iTime+.3*i)/d;
 
         //Distance to cylinder and waves with refraction
