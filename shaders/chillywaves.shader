@@ -2,8 +2,8 @@ const vec3 BLACK = vec3(0.);
 const vec3 PINK = vec3(233, 71, 245) / 255.;
 const vec3 BLUE = vec3(47, 75, 162) / 255.;
 
-mat2 rotate(float r) {
-    return mat2(cos(r), sin(r), -sin(r), cos(r));
+mat2x2 rotate(float r) {
+    return mat2x2(cos(r), sin(r), -sin(r), cos(r));
 }
 
 vec2 hash22(vec2 p)
