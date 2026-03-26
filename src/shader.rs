@@ -4,7 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const VERTEX_SHADER_SOURCE: &str = r#"attribute vec2 a_position;
+const VERTEX_SHADER_SOURCE: &str = r#"#version 300 es
+in vec2 a_position;
 
 void main() {
     gl_Position = vec4(a_position, 0.0, 1.0);
@@ -164,7 +165,7 @@ fn build_shader_html(shader_source: &str, scale: f32) -> Result<String, serde_js
       const vertexShaderSource = {vertex_shader_json};
       const canvas = document.getElementById("shader");
       const errorEl = document.getElementById("error");
-      const gl = canvas.getContext("webgl", {{
+      const gl = canvas.getContext("webgl2", {{
         alpha: false,
         antialias: false,
         depth: false,
@@ -174,11 +175,12 @@ fn build_shader_html(shader_source: &str, scale: f32) -> Result<String, serde_js
       }});
 
       if (!gl) {{
-        showError("WebGL is not available in this WebView.");
+        showError("WebGL 2 is not available in this WebView.");
         return;
       }}
 
-      const fragmentShaderSource = `precision highp float;
+      const fragmentShaderSource = `#version 300 es
+precision highp float;
 uniform vec3 iResolution;
 uniform float iTime;
 uniform float iTimeDelta;
@@ -189,10 +191,11 @@ uniform vec4 iDate;
 
 ${{userShaderSource}}
 
+out vec4 fragColor;
 void main() {{
   vec4 color = vec4(0.0);
   mainImage(color, gl_FragCoord.xy);
-  gl_FragColor = color;
+  fragColor = color;
 }}`;
 
       const program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
