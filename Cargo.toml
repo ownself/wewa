@@ -2,6 +2,7 @@
 name = "webwallpaper"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.87"
 description = "Display web content as desktop wallpaper"
 license = "MIT"
 authors = ["WebWallpaper Contributors"]
@@ -13,6 +14,12 @@ categories = ["command-line-utilities", "gui"]
 # Webview rendering - use compatible versions
 wry = "0.44"
 tao = "0.30"
+
+# Native GPU rendering for shader mode
+wgpu = { version = "25", features = ["glsl"] }
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+raw-window-handle = "0.6"
 
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
@@ -37,7 +44,7 @@ dirs = "5"
 ctrlc = "3"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.52", features = [
+windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",

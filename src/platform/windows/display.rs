@@ -26,7 +26,7 @@ pub fn enumerate_displays() -> PlatformResult<Vec<Display>> {
             LPARAM(&mut displays as *mut Vec<Display> as isize),
         );
 
-        if result == TRUE {
+        if result.as_bool() {
             // Sort displays by index to ensure consistent ordering
             displays.sort_by_key(|d| d.index);
             Ok(displays)

@@ -7,7 +7,9 @@
 //! making it immune to window managers like komorebi.
 
 use crate::ipc::{IpcCommand, IpcServer};
-use crate::wallpaper::{WallpaperConfig, WallpaperError, WallpaperResult};
+use crate::renderer::NativeRenderer;
+use crate::wallpaper::{RenderMode, WallpaperConfig, WallpaperError, WallpaperResult};
+use raw_window_handle::{RawDisplayHandle, RawWindowHandle, Win32WindowHandle, WindowsDisplayHandle};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -32,6 +34,16 @@ use wry::{WebView, WebViewBuilder};
 // LWA_ALPHA constant
 const LWA_ALPHA: LAYERED_WINDOW_ATTRIBUTES_FLAGS = LAYERED_WINDOW_ATTRIBUTES_FLAGS(2u32);
 
+/// Helper: create a null HWND
+fn null_hwnd() -> HWND {
+    HWND(std::ptr::null_mut())
+}
+
+/// Helper: check if HWND is null/invalid
+fn is_hwnd_valid(hwnd: HWND) -> bool {
+    !hwnd.0.is_null()
+}
+
 /// Desktop layer info for WorkerW technique
 struct DesktopLayer {
     worker_w: HWND,
@@ -51,9 +63,10 @@ fn setup_desktop_layer(verbose: bool) -> Option<DesktopLayer> {
 
         // Find Progman window
         let progman_class: Vec<u16> = "Progman\0".encode_utf16().collect();
-        let progman = FindWindowW(PCWSTR::from_raw(progman_class.as_ptr()), PCWSTR::null());
+        let progman = FindWindowW(PCWSTR::from_raw(progman_class.as_ptr()), PCWSTR::null())
+            .unwrap_or(null_hwnd());
 
-        if progman.0 == 0 {
+        if !is_hwnd_valid(progman) {
             if verbose {
                 println!("[WARN] Could not find Progman window");
             }
@@ -84,12 +97,12 @@ fn setup_desktop_layer(verbose: bool) -> Option<DesktopLayer> {
         // Find WorkerW by enumerating windows
         // We need to find the window that has SHELLDLL_DefView as child,
         // then get its next sibling WorkerW
-        let mut worker_w = HWND(0);
+        let mut worker_w = null_hwnd();
         let worker_w_ptr = &mut worker_w as *mut HWND;
 
         let _ = EnumWindows(Some(enum_windows_callback), LPARAM(worker_w_ptr as isize));
 
-        if worker_w.0 == 0 {
+        if !is_hwnd_valid(worker_w) {
             if verbose {
                 println!("[WARN] Could not find WorkerW window");
             }
@@ -111,22 +124,24 @@ unsafe extern "system" fn enum_windows_callback(hwnd: HWND, lparam: LPARAM) -> B
     // Check if this window has SHELLDLL_DefView as child
     let shell_view = FindWindowExW(
         hwnd,
-        HWND(0),
+        null_hwnd(),
         PCWSTR::from_raw(shell_class.as_ptr()),
         PCWSTR::null(),
-    );
+    )
+    .unwrap_or(null_hwnd());
 
-    if shell_view.0 != 0 {
+    if is_hwnd_valid(shell_view) {
         // Found SHELLDLL_DefView, now get the WorkerW sibling
         let worker_class: Vec<u16> = "WorkerW\0".encode_utf16().collect();
         let worker_w = FindWindowExW(
-            HWND(0),
+            null_hwnd(),
             hwnd,
             PCWSTR::from_raw(worker_class.as_ptr()),
             PCWSTR::null(),
-        );
+        )
+        .unwrap_or(null_hwnd());
 
-        if worker_w.0 != 0 {
+        if is_hwnd_valid(worker_w) {
             // Store the WorkerW handle
             let worker_w_ptr = lparam.0 as *mut HWND;
             *worker_w_ptr = worker_w;
@@ -170,7 +185,7 @@ fn cleanup_windows(
 
             // 2. Detach from WorkerW to prevent orphaned child window artifacts
             if using_worker_w {
-                let _ = SetParent(*hwnd, HWND(0));
+                let _ = SetParent(*hwnd, null_hwnd());
             }
 
             // 3. Explicitly destroy the window
@@ -223,8 +238,8 @@ fn attach_to_worker_w(hwnd: HWND, worker_w: HWND, verbose: bool) -> WallpaperRes
         let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 254, LWA_ALPHA);
 
         // Attach to WorkerW using SetParent
-        let result = SetParent(hwnd, worker_w);
-        if result.0 == 0 {
+        let result = SetParent(hwnd, worker_w).unwrap_or(null_hwnd());
+        if !is_hwnd_valid(result) {
             return Err(WallpaperError::WindowCreationFailed(
                 "SetParent to WorkerW failed".to_string(),
             ));
@@ -247,6 +262,279 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         return Ok(());
     }
 
+    // Dispatch based on render mode
+    let render_mode = configs[0].render_mode.clone();
+    match render_mode {
+        RenderMode::NativeGpu => create_wallpapers_native_gpu(configs),
+        RenderMode::WebView => create_wallpapers_webview(configs),
+    }
+}
+
+/// Create wallpapers using native wgpu GPU rendering for shader files.
+fn create_wallpapers_native_gpu(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
+    let verbose = configs[0].verbose;
+
+    if verbose {
+        println!(
+            "[INFO] Creating native GPU wallpaper for {} display(s)",
+            configs.len()
+        );
+    }
+
+    // Shutdown flag shared between threads
+    let shutdown_flag = Arc::new(AtomicBool::new(false));
+
+    // Start IPC server
+    let mut ipc_server = IpcServer::new();
+    let ipc_rx = if let Err(e) = ipc_server.start() {
+        if verbose {
+            println!("[WARN] Failed to start IPC server: {}", e);
+        }
+        None
+    } else {
+        if verbose {
+            println!("[INFO] IPC server started");
+        }
+        ipc_server.command_receiver()
+    };
+
+    // Set up Ctrl+C handler
+    let ctrlc_shutdown = shutdown_flag.clone();
+    let ctrlc_verbose = verbose;
+    let _ = ctrlc::set_handler(move || {
+        if ctrlc_verbose {
+            println!("\n[INFO] Ctrl+C received, initiating shutdown...");
+        }
+        ctrlc_shutdown.store(true, Ordering::Relaxed);
+    });
+
+    // Start IPC command processor thread
+    if let Some(rx) = ipc_rx {
+        let ipc_shutdown = shutdown_flag.clone();
+        start_ipc_processor(rx, ipc_shutdown, verbose);
+    }
+
+    // Setup desktop layer (WorkerW technique)
+    let desktop_layer = setup_desktop_layer(verbose);
+
+    // Create event loop
+    let event_loop = EventLoop::new();
+
+    // Create windows and renderers for each display
+    struct NativeWallpaperWindow {
+        window: Window,
+        renderer: NativeRenderer,
+        hwnd: HWND,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        scale: f32,
+    }
+
+    let mut native_windows: Vec<NativeWallpaperWindow> = Vec::new();
+
+    for config in &configs {
+        let shader_source = config.shader_source.as_deref().ok_or_else(|| {
+            WallpaperError::WindowCreationFailed("No shader source for NativeGpu mode".to_string())
+        })?;
+
+        if verbose {
+            println!(
+                "[INFO] Creating native GPU window for display {}",
+                config.display.index
+            );
+            println!(
+                "[INFO] Position: ({}, {}), Size: {}x{}",
+                config.display.x, config.display.y, config.display.width, config.display.height
+            );
+        }
+
+        // Create the tao window (no WebView needed)
+        let window = WindowBuilder::new()
+            .with_title(format!("WebWallpaper - Display {}", config.display.index))
+            .with_position(PhysicalPosition::new(config.display.x, config.display.y))
+            .with_inner_size(PhysicalSize::new(
+                config.display.width,
+                config.display.height,
+            ))
+            .with_decorations(false)
+            .with_resizable(false)
+            .with_always_on_top(false)
+            .with_visible(false)
+            .build(&event_loop)
+            .map_err(|e| WallpaperError::WindowCreationFailed(e.to_string()))?;
+
+        let hwnd = HWND(window.hwnd() as *mut std::ffi::c_void);
+
+        // Build raw window/display handles for wgpu surface creation
+        let mut win_handle = Win32WindowHandle::new(
+            std::num::NonZero::new(window.hwnd() as isize)
+                .expect("HWND should not be zero"),
+        );
+        let hinstance = unsafe {
+            windows::Win32::System::LibraryLoader::GetModuleHandleW(None)
+                .expect("GetModuleHandleW failed")
+        };
+        win_handle.hinstance = std::num::NonZero::new(hinstance.0 as isize);
+        let raw_window = RawWindowHandle::Win32(win_handle);
+        let raw_display = RawDisplayHandle::Windows(WindowsDisplayHandle::new());
+
+        // Create the native renderer
+        let renderer = unsafe {
+            NativeRenderer::new(
+                raw_window,
+                raw_display,
+                config.display.width,
+                config.display.height,
+                shader_source,
+                config.scale,
+                config.time_scale,
+            )
+        }
+        .map_err(|e| WallpaperError::WindowCreationFailed(format!("GPU renderer error: {}", e)))?;
+
+        if verbose {
+            println!(
+                "[INFO] Native GPU renderer created for display {}",
+                config.display.index
+            );
+        }
+
+        native_windows.push(NativeWallpaperWindow {
+            window,
+            renderer,
+            hwnd,
+            x: config.display.x,
+            y: config.display.y,
+            width: config.display.width,
+            height: config.display.height,
+            scale: config.scale,
+        });
+    }
+
+    // Attach to WorkerW and show windows
+    for nw in &native_windows {
+        if let Some(ref layer) = desktop_layer {
+            if let Err(e) = attach_to_worker_w(nw.hwnd, layer.worker_w, verbose) {
+                if verbose {
+                    println!("[WARN] Failed to attach to WorkerW: {}", e);
+                    println!("[INFO] Falling back to standard wallpaper styles...");
+                }
+                let _ = apply_wallpaper_styles(nw.hwnd, verbose);
+            }
+        } else {
+            let _ = apply_wallpaper_styles(nw.hwnd, verbose);
+        }
+
+        unsafe {
+            let _ = SetWindowPos(
+                nw.hwnd,
+                HWND_BOTTOM,
+                nw.x,
+                nw.y,
+                nw.width as i32,
+                nw.height as i32,
+                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            );
+        }
+        nw.window.set_visible(true);
+    }
+
+    if desktop_layer.is_none() {
+        std::thread::sleep(Duration::from_millis(200));
+        for nw in &native_windows {
+            apply_z_order(nw.hwnd, false);
+        }
+    }
+
+    if verbose {
+        println!("[INFO] Native GPU wallpaper is now running. Press Ctrl+C to stop.");
+    }
+
+    let using_worker_w = desktop_layer.is_some();
+
+    // Run the event loop — render on each frame
+    event_loop.run(move |event, _, control_flow| {
+        if shutdown_flag.load(Ordering::Relaxed) {
+            if verbose {
+                println!("[INFO] Shutdown flag detected, closing...");
+            }
+            // Clean up native windows
+            for nw in &native_windows {
+                unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::{
+                        DestroyWindow, ShowWindow, SW_HIDE,
+                    };
+                    let _ = ShowWindow(nw.hwnd, SW_HIDE);
+                    if using_worker_w {
+                        let _ = SetParent(nw.hwnd, null_hwnd());
+                    }
+                    let _ = DestroyWindow(nw.hwnd);
+                }
+            }
+            if using_worker_w {
+                refresh_desktop(verbose);
+            }
+            ipc_server.shutdown();
+            *control_flow = ControlFlow::Exit;
+            return;
+        }
+
+        *control_flow = ControlFlow::Poll;
+
+        match event {
+            Event::MainEventsCleared => {
+                // Request redraw for all windows
+                for nw in &native_windows {
+                    nw.window.request_redraw();
+                }
+            }
+            Event::RedrawRequested(_) => {
+                // Render a frame for each native window
+                for nw in &mut native_windows {
+                    if let Err(e) = nw.renderer.render_frame(0.0, 0.0, 0.0, 0.0) {
+                        eprintln!("[ERROR] Render error: {}", e);
+                        shutdown_flag.store(true, Ordering::Relaxed);
+                    }
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Resized(new_size),
+                window_id,
+                ..
+            } => {
+                // Find the renderer for this window and resize its surface
+                for nw in &mut native_windows {
+                    if nw.window.id() == window_id {
+                        nw.renderer.resize(new_size.width, new_size.height);
+                        if verbose {
+                            println!(
+                                "[INFO] Resized renderer to {}x{}",
+                                new_size.width, new_size.height
+                            );
+                        }
+                        break;
+                    }
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            }
+            | Event::WindowEvent {
+                event: WindowEvent::Destroyed,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+            }
+            _ => {}
+        }
+    });
+}
+
+/// Create wallpapers using WebView rendering for URLs and HTML files.
+fn create_wallpapers_webview(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
     let verbose = configs.first().map(|c| c.verbose).unwrap_or(false);
 
     if verbose {
@@ -329,7 +617,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             .map_err(|e| WallpaperError::WindowCreationFailed(e.to_string()))?;
 
         // Get the HWND
-        let hwnd = HWND(window.hwnd() as isize);
+        let hwnd = HWND(window.hwnd() as *mut std::ffi::c_void);
 
         if verbose {
             println!(
@@ -596,9 +884,10 @@ fn apply_z_order(hwnd: HWND, verbose: bool) {
         let desktop_hwnd = FindWindowW(
             PCWSTR::from_raw(progman_class.as_ptr()),
             PCWSTR::from_raw(progman_title.as_ptr()),
-        );
+        )
+        .unwrap_or(null_hwnd());
 
-        if desktop_hwnd.0 != 0 {
+        if is_hwnd_valid(desktop_hwnd) {
             if verbose {
                 println!(
                     "[INFO] Found desktop window (Progman), positioning after it in Z-order..."

@@ -48,6 +48,25 @@ pub fn validate_time_scale(time_scale: f32) -> Result<f32, String> {
     Ok(time_scale)
 }
 
+/// Read and validate a shader source file.
+///
+/// Returns the shader source string if the file exists and contains `mainImage`.
+pub fn read_shader_source(path: &Path) -> Result<String, String> {
+    let source = fs::read_to_string(path).map_err(|e| {
+        format!(
+            "Failed to read shader file {}: {}",
+            path.display(),
+            e
+        )
+    })?;
+
+    if !source.contains("mainImage") {
+        return Err("Shader file must define a ShaderToy-style mainImage() function".to_string());
+    }
+
+    Ok(source)
+}
+
 pub fn create_shader_bundle(
     shader_path: &Path,
     scale: f32,

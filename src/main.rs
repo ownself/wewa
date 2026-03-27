@@ -8,6 +8,7 @@ mod config;
 mod display;
 mod ipc;
 mod platform;
+mod renderer;
 mod server;
 mod shader;
 mod wallpaper;
@@ -24,6 +25,9 @@ mod exit_codes {
     pub const GENERAL_ERROR: i32 = 1;
     pub const DISPLAY_NOT_FOUND: i32 = 2;
     pub const NO_RUNNING_INSTANCE: i32 = 3;
+    pub const SHADER_COMPILATION_FAILED: i32 = 4;
+    pub const NO_GPU_ADAPTER: i32 = 5;
+    // WebView-specific (same numeric values, different context)
     pub const WEBVIEW_NOT_AVAILABLE: i32 = 4;
     pub const SERVER_STARTUP_FAILED: i32 = 5;
 }
@@ -228,12 +232,6 @@ fn handle_start(
         platform::print_display_info(&displays);
     }
 
-    // Check platform runtime availability before proceeding
-    if let Err(e) = platform::ensure_runtime_available() {
-        eprintln!("error: {}", e);
-        return exit_codes::WEBVIEW_NOT_AVAILABLE;
-    }
-
     // Determine target displays
     let target_displays: Vec<crate::display::Display> = if let Some(index) = display {
         // Specific display requested
@@ -289,46 +287,118 @@ fn handle_start(
         return exit_codes::GENERAL_ERROR;
     }
 
-    // Determine the URL to load
-    let mut shader_bundle: Option<shader::ShaderBundle> = None;
+    // Check if this is a shader file for native GPU rendering
+    let local_path = Path::new(url_or_path);
+    let is_native_shader = !is_url(url_or_path) && shader::is_shader_file(local_path);
+
+    if is_native_shader {
+        // Native GPU shader rendering path — no WebView, no HTTP server
+        if verbose {
+            println!("[INFO] Detected .shader input, using native GPU renderer...");
+        }
+
+        let shader_source = match shader::read_shader_source(local_path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: {}", e);
+                return exit_codes::GENERAL_ERROR;
+            }
+        };
+
+        let display_indices: Vec<u32> = target_displays.iter().map(|d| d.index).collect();
+
+        // Write instance files
+        for target_display in &target_displays {
+            let instance =
+                WallpaperInstance::new(target_display.index, url_or_path.to_string(), None);
+            if let Err(e) = instance.save(config) {
+                eprintln!(
+                    "[WARN] Failed to save instance file for display {}: {}",
+                    target_display.index, e
+                );
+            }
+        }
+
+        // Create native GPU wallpaper configs
+        let wallpaper_configs: Vec<WallpaperConfig> = target_displays
+            .iter()
+            .map(|d| {
+                WallpaperConfig::new_native_gpu(
+                    shader_source.clone(),
+                    d.clone(),
+                    scale,
+                    time_scale,
+                    verbose,
+                )
+            })
+            .collect();
+
+        // Print status
+        if target_displays.len() == 1 {
+            println!(
+                "Started shader wallpaper on display {}: {}",
+                target_displays[0].index, url_or_path
+            );
+        } else {
+            let display_list: Vec<String> =
+                target_displays.iter().map(|d| d.index.to_string()).collect();
+            println!(
+                "Started shader wallpaper on {} display(s) [{}]: {}",
+                target_displays.len(),
+                display_list.join(", "),
+                url_or_path
+            );
+        }
+
+        if let Err(e) = platform::create_wallpapers(wallpaper_configs) {
+            let error_str = e.to_string();
+            let exit_code = if error_str.contains("shader compilation failed") {
+                eprintln!("error: shader compilation failed\n{}", error_str);
+                exit_codes::SHADER_COMPILATION_FAILED
+            } else if error_str.contains("no compatible GPU adapter") {
+                eprintln!("error: {}", error_str);
+                exit_codes::NO_GPU_ADAPTER
+            } else {
+                eprintln!("error: Wallpaper creation failed: {}", error_str);
+                exit_codes::GENERAL_ERROR
+            };
+            for index in &display_indices {
+                let _ = WallpaperInstance::delete(config, *index);
+            }
+            return exit_code;
+        }
+
+        for index in &display_indices {
+            let _ = WallpaperInstance::delete(config, *index);
+        }
+
+        return exit_codes::SUCCESS;
+    }
+
+    // Check platform runtime availability (WebView2) for non-shader paths
+    if let Err(e) = platform::ensure_runtime_available() {
+        eprintln!("error: {}", e);
+        return exit_codes::WEBVIEW_NOT_AVAILABLE;
+    }
+
+    // WebView rendering path — URLs and local HTML files
+    let shader_bundle: Option<shader::ShaderBundle> = None;
     let (url, server): (String, Option<LocalServer>) = if is_url(url_or_path) {
-        // It's already a URL - apply transformations for special sites
         if verbose {
             println!("[INFO] Input is a URL");
         }
         let transformed = transform_url(url_or_path, verbose);
         (transformed, None)
     } else {
-        // It's a local file path - need to start HTTP server
         if verbose {
             println!("[INFO] Input is a local path, starting HTTP server...");
         }
 
-        let local_path = Path::new(url_or_path);
-        let (root_dir, filename) = if shader::is_shader_file(local_path) {
-            if verbose {
-                println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
-            }
-
-            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale) {
-                Ok(bundle) => bundle,
-                Err(e) => {
-                    eprintln!("error: {}", e);
-                    return exit_codes::GENERAL_ERROR;
-                }
-            };
-
-            let root_dir = bundle.root_dir.clone();
-            let entry_file = bundle.entry_file.clone();
-            shader_bundle = Some(bundle);
-            (root_dir, entry_file)
-        } else {
-            match resolve_local_path(url_or_path) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("error: {}", e);
-                    return exit_codes::GENERAL_ERROR;
-                }
+        let (root_dir, filename) = match resolve_local_path(url_or_path) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("error: {}", e);
+                return exit_codes::GENERAL_ERROR;
             }
         };
 
