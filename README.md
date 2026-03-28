@@ -2,7 +2,9 @@
 
 Display web content as desktop wallpaper on Windows, Linux and macOS.
 
-A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support.
+A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support. Ships with **37 built-in [ShaderToy](https://www.shadertoy.com) shaders** as dynamic wallpapers — just run `webwallpaper -b <name>` and enjoy.
+
+跨平台 Rust CLI 工具，将网页内容渲染为全屏桌面壁纸，支持多显示器。内置 **37 款 [ShaderToy](https://www.shadertoy.com) 着色器**作为动态壁纸，运行 `webwallpaper -b <名称>` 即可开箱即用。
 
 ---
 
@@ -14,9 +16,11 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 
 <div align="center">
 
-Wallpaper demonstraition : **ascend** by [bug](https://www.shadertoy.com/view/33KBDm)
+Built-in wallpapers are all dynamic wallpaper and optimized with GPU performance, you can check out demonstraition video before download : **ascend** by [bug](https://www.shadertoy.com/view/33KBDm)
 
 https://github.com/ownself/webwallpaper/raw/main/previews/ascend.mp4
+
+And all the previews show as screenshot below:
 
 </div>
 
