@@ -30,27 +30,27 @@ pub struct CliArgs {
     pub port: u16,
 
     /// Shader render scale for .shader inputs (default: 1.0)
-    #[arg(long, default_value = "1.0")]
+    #[arg(short = 's', long, default_value = "1.0")]
     pub scale: f32,
 
     /// Shader time scale for .shader inputs (default: 1.0)
-    #[arg(long, default_value = "1.0")]
+    #[arg(long, visible_alias = "ts", default_value = "1.0")]
     pub time_scale: f32,
 
     /// Texture file for iChannel0 (2D image or 3D volume with .bin extension)
-    #[arg(long)]
+    #[arg(long, visible_alias = "c0")]
     pub channel0: Option<String>,
 
     /// Texture file for iChannel1
-    #[arg(long)]
+    #[arg(long, visible_alias = "c1")]
     pub channel1: Option<String>,
 
     /// Texture file for iChannel2
-    #[arg(long)]
+    #[arg(long, visible_alias = "c2")]
     pub channel2: Option<String>,
 
     /// Texture file for iChannel3
-    #[arg(long)]
+    #[arg(long, visible_alias = "c3")]
     pub channel3: Option<String>,
 
     /// Enable verbose output

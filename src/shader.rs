@@ -332,7 +332,7 @@ fn build_shader_html(
 </head>
 <body>
   <canvas id="shader"></canvas>
-  <div id="hint">Shader scale {scale:.2} | time scale {time_scale:.2}</div>
+  <div id="hint" style="display:none">Shader scale {scale:.2} | time scale {time_scale:.2}</div>
   <pre id="error"></pre>
   <script>
     (() => {{
