@@ -52,6 +52,7 @@ fn main() {
             port,
             scale,
             time_scale,
+            channels,
         } => handle_start(
             &config,
             &url_or_path,
@@ -59,6 +60,7 @@ fn main() {
             port,
             scale,
             time_scale,
+            &channels,
             args.verbose,
         ),
 
@@ -188,6 +190,7 @@ fn handle_start(
     port: u16,
     scale: f32,
     time_scale: f32,
+    channels: &[Option<String>; 4],
     verbose: bool,
 ) -> i32 {
     if verbose {
@@ -310,7 +313,7 @@ fn handle_start(
                 println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
             }
 
-            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale) {
+            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale, channels) {
                 Ok(bundle) => bundle,
                 Err(e) => {
                     eprintln!("error: {}", e);

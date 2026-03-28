@@ -37,6 +37,22 @@ pub struct CliArgs {
     #[arg(long, default_value = "1.0")]
     pub time_scale: f32,
 
+    /// Texture file for iChannel0 (2D image or 3D volume with .bin extension)
+    #[arg(long)]
+    pub channel0: Option<String>,
+
+    /// Texture file for iChannel1
+    #[arg(long)]
+    pub channel1: Option<String>,
+
+    /// Texture file for iChannel2
+    #[arg(long)]
+    pub channel2: Option<String>,
+
+    /// Texture file for iChannel3
+    #[arg(long)]
+    pub channel3: Option<String>,
+
     /// Enable verbose output
     #[arg(short = 'v', long)]
     pub verbose: bool,
@@ -61,6 +77,12 @@ impl CliArgs {
                 port: self.port,
                 scale: self.scale,
                 time_scale: self.time_scale,
+                channels: [
+                    self.channel0.clone(),
+                    self.channel1.clone(),
+                    self.channel2.clone(),
+                    self.channel3.clone(),
+                ],
             }
         } else {
             CommandMode::ShowHelp
@@ -78,6 +100,7 @@ pub enum CommandMode {
         port: u16,
         scale: f32,
         time_scale: f32,
+        channels: [Option<String>; 4],
     },
     /// Stop wallpaper on specific display
     Stop(u32),
