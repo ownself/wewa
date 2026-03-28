@@ -2,16 +2,22 @@
 
 #define t iTime*2.
 #define SIZE 30.
+#define COLOR_CYCLE_SPEED 0.3
+#define COLOR_CYCLE_PERIOD 10.0
 
-#define col1 vec3(193.,41.,46.)/255.
-#define col2 vec3(241.,211.,2.)/255.
+#define col_red vec3(193.,41.,46.)/255.
+#define col_yellow vec3(241.,211.,2.)/255.
+#define col_blue vec3(41.,128.,193.)/255.
+#define col_green vec3(46.,193.,89.)/255.
 
 vec2 ran(vec2 uv) {
     uv *= vec2(dot(uv,vec2(127.1,311.7)),dot(uv,vec2(227.1,521.7)) );
     return 1.0-fract(tan(cos(uv)*123.6)*3533.3)*fract(tan(cos(uv)*123.6)*3533.3);
 }
 vec2 pt(vec2 id) {
-    return sin(t*(ran(id+.5)-0.5)+ran(id-20.1)*8.0)*0.5;
+    vec2 phase = t*(ran(id+.5)-0.5)+ran(id-20.1)*8.0;
+    phase = mod(phase, 6.28318530718);
+    return sin(phase)*0.5;
 }
 
 
@@ -38,7 +44,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         }
     }
 
-    vec3 col = mix(col1,col2,clamp(vorv.x*2.2+vorv.y,-1.,1.)*0.5+0.5);
+    // without color cycling
+    // vec3 col = mix(col1,col2,clamp(vorv.x*2.2+vorv.y,-1.,1.)*0.5+0.5);
+
+    // with color cycling
+    float colorPhase = sin(iTime * COLOR_CYCLE_SPEED * 6.28318530718 / COLOR_CYCLE_PERIOD) * 0.5 + 0.5;
+    vec3 leftCol = mix(col_red, col_blue, colorPhase);
+    vec3 rightCol = mix(col_yellow, col_green, colorPhase);
+    vec3 col = mix(leftCol, rightCol, clamp(vorv.x*2.2+vorv.y, -1., 1.)*0.5+0.5);
 
     fragColor = vec4(col,1.0);
 

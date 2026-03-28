@@ -48,10 +48,22 @@ pub fn validate_time_scale(time_scale: f32) -> Result<f32, String> {
     Ok(time_scale)
 }
 
+/// Describes a single iChannel input texture.
+#[derive(Clone, Debug)]
+pub struct ChannelInput {
+    /// Index 0–3
+    pub channel: usize,
+    /// Filename inside the bundle directory
+    pub filename: String,
+    /// Whether this is a 3D volume texture (.bin)
+    pub is_volume: bool,
+}
+
 pub fn create_shader_bundle(
     shader_path: &Path,
     scale: f32,
     time_scale: f32,
+    channel_paths: &[Option<String>; 4],
 ) -> Result<ShaderBundle, String> {
     let shader_source = fs::read_to_string(shader_path).map_err(|e| {
         format!(
@@ -65,12 +77,45 @@ pub fn create_shader_bundle(
         return Err("Shader file must define a ShaderToy-style mainImage() function".to_string());
     }
 
-    let html = build_shader_html(&shader_source, scale, time_scale)
-        .map_err(|e| format!("Failed to build shader HTML: {}", e))?;
-
     let bundle_dir = unique_shader_dir()?;
     fs::create_dir_all(&bundle_dir)
         .map_err(|e| format!("Failed to create temporary shader directory: {}", e))?;
+
+    // Resolve and copy channel textures into the bundle directory
+    let mut channels: Vec<ChannelInput> = Vec::new();
+    for (i, opt) in channel_paths.iter().enumerate() {
+        if let Some(ref path_str) = opt {
+            let src = resolve_channel_path(shader_path, path_str)?;
+            let is_volume = src
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("bin"))
+                .unwrap_or(false);
+            let ext = src
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("png");
+            let filename = format!("ichannel{}.{}", i, ext);
+            let dest = bundle_dir.join(&filename);
+            fs::copy(&src, &dest).map_err(|e| {
+                format!(
+                    "Failed to copy channel{} texture {} -> {}: {}",
+                    i,
+                    src.display(),
+                    dest.display(),
+                    e
+                )
+            })?;
+            channels.push(ChannelInput {
+                channel: i,
+                filename,
+                is_volume,
+            });
+        }
+    }
+
+    let html = build_shader_html(&shader_source, scale, time_scale, &channels)
+        .map_err(|e| format!("Failed to build shader HTML: {}", e))?;
 
     let index_path = bundle_dir.join("index.html");
     fs::write(&index_path, html)
@@ -80,6 +125,102 @@ pub fn create_shader_bundle(
         root_dir: bundle_dir,
         entry_file: "index.html".to_string(),
     })
+}
+
+/// Generate JavaScript code to load and bind iChannel textures.
+fn build_channel_load_js(channels: &[ChannelInput]) -> String {
+    let mut js = String::new();
+    for ch in channels {
+        if ch.is_volume {
+            // 3D volume texture: fetch .bin, parse header, upload as texImage3D
+            js.push_str(&format!(
+                r#"
+      (function() {{
+        const ch = {ch};
+        fetch("{filename}")
+          .then(r => r.arrayBuffer())
+          .then(data => {{
+            const view = new DataView(data);
+            const xres = view.getUint32(4, true);
+            const yres = view.getUint32(8, true);
+            const zres = view.getUint32(12, true);
+            const numCh = view.getUint8(16);
+            const buffer = new Uint8Array(data, 20);
+            const tex = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0 + ch);
+            gl.bindTexture(gl.TEXTURE_3D, tex);
+            const fmt = numCh === 1 ? gl.RED : numCh === 2 ? gl.RG : numCh === 3 ? gl.RGB : gl.RGBA;
+            const ifmt = numCh === 1 ? gl.R8 : numCh === 2 ? gl.RG8 : numCh === 3 ? gl.RGB8 : gl.RGBA8;
+            gl.texImage3D(gl.TEXTURE_3D, 0, ifmt, xres, yres, zres, 0, fmt, gl.UNSIGNED_BYTE, buffer);
+            gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.REPEAT);
+            channelTextures[ch] = {{ texture: tex, target: gl.TEXTURE_3D }};
+            channelResolutions[ch*3] = xres;
+            channelResolutions[ch*3+1] = yres;
+            channelResolutions[ch*3+2] = zres;
+          }})
+          .catch(e => console.error("Failed to load volume iChannel" + ch, e));
+      }})();
+"#,
+                ch = ch.channel,
+                filename = ch.filename,
+            ));
+        } else {
+            // 2D texture: load as image, upload as texImage2D with mipmaps
+            js.push_str(&format!(
+                r#"
+      (function() {{
+        const ch = {ch};
+        const img = new Image();
+        img.onload = function() {{
+          const tex = gl.createTexture();
+          gl.activeTexture(gl.TEXTURE0 + ch);
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          gl.generateMipmap(gl.TEXTURE_2D);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          channelTextures[ch] = {{ texture: tex, target: gl.TEXTURE_2D }};
+          channelResolutions[ch*3] = img.width;
+          channelResolutions[ch*3+1] = img.height;
+          channelResolutions[ch*3+2] = 1.0;
+        }};
+        img.src = "{filename}";
+      }})();
+"#,
+                ch = ch.channel,
+                filename = ch.filename,
+            ));
+        }
+    }
+    js
+}
+
+/// Resolve a channel path: if absolute use as-is, otherwise resolve relative
+/// to the shader file's parent directory.
+fn resolve_channel_path(shader_path: &Path, channel_path: &str) -> Result<PathBuf, String> {
+    let p = Path::new(channel_path);
+    let resolved = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        shader_path
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(p)
+    };
+    if !resolved.exists() {
+        return Err(format!(
+            "Channel texture file not found: {}",
+            resolved.display()
+        ));
+    }
+    Ok(resolved)
 }
 
 pub fn cleanup_shader_bundle(bundle: &ShaderBundle) {
@@ -103,9 +244,24 @@ fn build_shader_html(
     shader_source: &str,
     scale: f32,
     time_scale: f32,
+    channels: &[ChannelInput],
 ) -> Result<String, serde_json::Error> {
     let shader_json = serde_json::to_string(shader_source)?;
     let vertex_shader_json = serde_json::to_string(VERTEX_SHADER_SOURCE)?;
+
+    // Build channel config JSON for JS (provided channels with known types)
+    let mut channel_config_entries = Vec::new();
+    for ch in channels {
+        channel_config_entries.push(format!(
+            "{{ch:{},type:\"{}\"}}",
+            ch.channel,
+            if ch.is_volume { "3d" } else { "2d" }
+        ));
+    }
+    let channel_config_js = format!("[{}]", channel_config_entries.join(","));
+
+    // Build JS code to load textures and bind them
+    let channel_load_js = build_channel_load_js(channels);
 
     Ok(format!(
         r#"<!DOCTYPE html>
@@ -176,7 +332,7 @@ fn build_shader_html(
 </head>
 <body>
   <canvas id="shader"></canvas>
-  <div id="hint">Shader scale {scale:.2} | time scale {time_scale:.2}</div>
+  <div id="hint" style="display:none">Shader scale {scale:.2} | time scale {time_scale:.2}</div>
   <pre id="error"></pre>
   <script>
     (() => {{
@@ -184,6 +340,7 @@ fn build_shader_html(
       const timeScale = {time_scale};
       const userShaderSource = {shader_json};
       const vertexShaderSource = {vertex_shader_json};
+      const providedChannels = {channel_config_js};
       const canvas = document.getElementById("shader");
       const errorEl = document.getElementById("error");
       const gl = canvas.getContext("webgl2", {{
@@ -200,8 +357,26 @@ fn build_shader_html(
         return;
       }}
 
-      const fragmentShaderSource = `#version 300 es
+      // Build fragment shader source with given channel type config
+      function buildFragSource(unusedAs3D) {{
+        let decls = "";
+        for (let i = 0; i < 4; i++) {{
+          const prov = providedChannels.find(c => c.ch === i);
+          if (prov) {{
+            decls += prov.type === "3d"
+              ? "uniform highp sampler3D iChannel" + i + ";\n"
+              : "uniform sampler2D iChannel" + i + ";\n";
+          }} else {{
+            decls += unusedAs3D.has(i)
+              ? "uniform highp sampler3D iChannel" + i + ";\n"
+              : "uniform sampler2D iChannel" + i + ";\n";
+          }}
+        }}
+        decls += "uniform vec3 iChannelResolution[4];\n";
+        return `#version 300 es
 precision highp float;
+precision highp sampler3D;
+#define HW_PERFORMANCE 1
 uniform vec3 iResolution;
 uniform float iTime;
 uniform float iTimeDelta;
@@ -209,7 +384,7 @@ uniform float iFrameRate;
 uniform int iFrame;
 uniform vec4 iMouse;
 uniform vec4 iDate;
-
+${{decls}}
 ${{userShaderSource}}
 
 out vec4 fragColor;
@@ -218,9 +393,31 @@ void main() {{
   mainImage(color, gl_FragCoord.xy);
   fragColor = color;
 }}`;
+      }}
 
-      const program = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+      // Find unused channel indices
+      const unusedIndices = [];
+      for (let i = 0; i < 4; i++) {{
+        if (!providedChannels.find(c => c.ch === i)) unusedIndices.push(i);
+      }}
+
+      // Try compiling: first all unused as sampler2D, then try sampler3D combos
+      let program = null;
+      let lastError = "";
+      const totalCombos = 1 << unusedIndices.length;
+      for (let mask = 0; mask < totalCombos; mask++) {{
+        const as3D = new Set();
+        for (let j = 0; j < unusedIndices.length; j++) {{
+          if (mask & (1 << j)) as3D.add(unusedIndices[j]);
+        }}
+        const src = buildFragSource(as3D);
+        // All attempts are silent; we show error only if all fail
+        program = createProgram(gl, vertexShaderSource, src, true);
+        if (program) break;
+        if (mask === 0) lastError = gl._lastError || "";
+      }}
       if (!program) {{
+        showError(lastError || "Shader compilation failed");
         return;
       }}
 
@@ -232,6 +429,20 @@ void main() {{
       const frameLocation = gl.getUniformLocation(program, "iFrame");
       const mouseLocation = gl.getUniformLocation(program, "iMouse");
       const dateLocation = gl.getUniformLocation(program, "iDate");
+      const channelResLocation = gl.getUniformLocation(program, "iChannelResolution");
+
+      // iChannel texture slots
+      const channelLocations = [
+        gl.getUniformLocation(program, "iChannel0"),
+        gl.getUniformLocation(program, "iChannel1"),
+        gl.getUniformLocation(program, "iChannel2"),
+        gl.getUniformLocation(program, "iChannel3"),
+      ];
+      const channelTextures = [null, null, null, null];
+      const channelResolutions = new Float32Array(12); // 4 x vec3
+
+      // Load channel textures
+      {channel_load_js}
 
       const positionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -309,6 +520,16 @@ void main() {{
         gl.uniform4f(mouseLocation, mouse[0], mouse[1], mouse[2], mouse[3]);
         gl.uniform4f(dateLocation, date.getFullYear(), date.getMonth() + 1, date.getDate(), seconds);
 
+        // Bind iChannel textures
+        for (let i = 0; i < 4; i++) {{
+          if (channelTextures[i]) {{
+            gl.activeTexture(gl.TEXTURE0 + i);
+            gl.bindTexture(channelTextures[i].target, channelTextures[i].texture);
+            if (channelLocations[i]) gl.uniform1i(channelLocations[i], i);
+          }}
+        }}
+        if (channelResLocation) gl.uniform3fv(channelResLocation, channelResolutions);
+
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
         frame += 1;
@@ -318,9 +539,9 @@ void main() {{
 
       requestAnimationFrame(render);
 
-      function createProgram(gl, vertexSource, fragmentSource) {{
-        const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
-        const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+      function createProgram(gl, vertexSource, fragmentSource, silent) {{
+        const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource, silent);
+        const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource, silent);
         if (!vertexShader || !fragmentShader) {{
           return null;
         }}
@@ -331,7 +552,7 @@ void main() {{
         gl.linkProgram(program);
 
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {{
-          showError("Shader program link error:\n" + gl.getProgramInfoLog(program));
+          if (!silent) showError("Shader program link error:\n" + gl.getProgramInfoLog(program));
           gl.deleteProgram(program);
           return null;
         }}
@@ -339,13 +560,15 @@ void main() {{
         return program;
       }}
 
-      function compileShader(gl, type, source) {{
+      function compileShader(gl, type, source, silent) {{
         const shader = gl.createShader(type);
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
 
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {{
-          showError((type === gl.VERTEX_SHADER ? "Vertex" : "Fragment") + " shader compile error:\n" + gl.getShaderInfoLog(shader));
+          const err = (type === gl.VERTEX_SHADER ? "Vertex" : "Fragment") + " shader compile error:\n" + gl.getShaderInfoLog(shader);
+          gl._lastError = err;
+          if (!silent) showError(err);
           gl.deleteShader(shader);
           return null;
         }}
@@ -361,7 +584,9 @@ void main() {{
   </script>
 </body>
 </html>
-"#
+"#,
+        channel_config_js = channel_config_js,
+        channel_load_js = channel_load_js,
     ))
 }
 
@@ -399,6 +624,7 @@ mod tests {
             "void mainImage(out vec4 c, in vec2 f) { c = vec4(1.0); }",
             0.5,
             1.25,
+            &[],
         )
         .unwrap();
         assert!(html.contains("Shader scale 0.50"));
@@ -425,7 +651,8 @@ mod tests {
         )
         .unwrap();
 
-        let bundle = create_shader_bundle(&temp_path, 1.0, 1.0).unwrap();
+        let no_channels = [None, None, None, None];
+        let bundle = create_shader_bundle(&temp_path, 1.0, 1.0, &no_channels).unwrap();
         assert!(bundle.root_dir.join(&bundle.entry_file).exists());
 
         cleanup_shader_bundle(&bundle);
