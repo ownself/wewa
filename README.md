@@ -19,6 +19,8 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 - **Local File Support** — Built-in HTTP server for local HTML/JS/CSS projects
 - **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format
 - **Local `.shader` Support** — Wrap single-pass ShaderToy snippets into a fullscreen WebGL runtime
+- **iChannel Textures** — Supply 2D textures (`.png`/`.jpg`) and 3D volume textures (`.bin`) for ShaderToy shaders that use `iChannel0`–`iChannel3`
+- **37 Built-in Shaders** — Curated collection of ShaderToy shaders with pre-tuned parameters, ready to use with `-b <name>`
 - **IPC Control** — Stop wallpapers remotely via named pipes (Windows) or Unix domain sockets (Linux/macOS)
 - **Graceful Shutdown** — Ctrl+C handling with platform-specific cleanup
 
@@ -73,6 +75,21 @@ webwallpaper ./octagrams.shader --time-scale 0.5
 # Speed up shader animation for comparison or debugging
 webwallpaper ./octagrams.shader --time-scale 2.0
 
+# Shader with iChannel textures (2D png/jpg or 3D .bin volume)
+webwallpaper ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textures/noise_grey.png --channel2 textures/noise_volume.bin
+
+# Short aliases for channel and time-scale options
+webwallpaper ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
+
+# Use a built-in shader (no files needed)
+webwallpaper -b starnest
+
+# List all available built-in shaders
+webwallpaper -b list
+
+# Override built-in defaults
+webwallpaper -b clouds -s 1.0 --ts 0.5
+
 # Local HTML file
 webwallpaper ./my-wallpaper/index.html
 
@@ -87,6 +104,7 @@ webwallpaper --stop 0
 
 # Stop all wallpapers
 webwallpaper --stopall
+webwallpaper --sa
 
 # Verbose output
 webwallpaper --verbose https://example.com
@@ -96,12 +114,17 @@ webwallpaper --verbose https://example.com
 
 | Option | Short | Description |
 |--------|-------|-------------|
+| `--builtin <NAME>` | `-b` | Use a built-in shader by name (use `list` to see all) |
 | `--display <N>` | `-d` | Target specific display (0-based index) |
 | `--stop <N>` | | Stop wallpaper on display N |
-| `--stopall` | | Stop all running wallpapers |
+| `--stopall` | `--sa` | Stop all running wallpapers |
 | `--port <PORT>` | `-p` | HTTP server port for local files (default: 8080) |
-| `--scale <FACTOR>` | | Shader render scale for `.shader` inputs (default: 1.0) |
-| `--time-scale <FACTOR>` | | Shader animation time scale for `.shader` inputs (default: 1.0) |
+| `--scale <FACTOR>` | `-s` | Shader render scale (default: 1.0, or per-shader default with `-b`) |
+| `--time-scale <FACTOR>` | `--ts` | Shader animation time scale (default: 1.0, or per-shader default with `-b`) |
+| `--channel0 <FILE>` | `--c0` | Texture file for iChannel0 (2D image or 3D `.bin` volume) |
+| `--channel1 <FILE>` | `--c1` | Texture file for iChannel1 |
+| `--channel2 <FILE>` | `--c2` | Texture file for iChannel2 |
+| `--channel3 <FILE>` | `--c3` | Texture file for iChannel3 |
 | `--verbose` | `-v` | Enable verbose output |
 | `--help` | `-h` | Show help message |
 | `--version` | `-V` | Show version |
@@ -112,6 +135,51 @@ webwallpaper --verbose https://example.com
 - `--time-scale` changes the speed of the injected `iTime` and `iTimeDelta` values for local `.shader` inputs.
 - Use `--time-scale 1.0` for original speed, values below `1.0` to slow animation down, values above `1.0` to speed it up, and `0` to freeze time for debugging.
 - `--time-scale` avoids editing shader source when you only want to compare animation pacing across different shaders.
+
+### iChannel Textures
+
+Many ShaderToy shaders read from `iChannel0`–`iChannel3` for noise, photos, or other data. You can supply these textures from local files:
+
+- **2D textures** — any image format (`.png`, `.jpg`, etc.) → declared as `sampler2D`
+- **3D volume textures** — ShaderToy `.bin` format (header: 4-byte signature + width/height/depth/channels, followed by raw uint8 data) → declared as `sampler3D`
+
+The file extension determines the type: `.bin` = 3D volume, anything else = 2D texture.
+
+Channels that are not provided are automatically declared. If the shader fails to compile with `sampler2D`, the engine retries with `sampler3D` — so most shaders work without any `--channel` flags, albeit with blank (black) texture reads.
+
+To find a ShaderToy shader's iChannel configuration, open the shader page in a browser and run this in DevTools (F12) Console:
+
+```javascript
+JSON.stringify(gShaderToy.mEffect.mPasses.map((pass, pi) => ({
+  pass: pi, type: pass.mType,
+  inputs: pass.mInputs.map((inp, i) => inp ? {
+    channel: i, type: inp.mInfo.mType, src: inp.mInfo.mSrc
+  } : null).filter(x => x)
+})), null, 2)
+```
+
+Then download the textures from `https://www.shadertoy.com<src_path>` in your browser.
+
+### Built-in Shaders
+
+The binary ships with 37 curated shaders and their required textures — no external files needed:
+
+```bash
+webwallpaper -b list        # see all available names
+webwallpaper -b starnest    # use it
+```
+
+Each built-in shader has pre-tuned `scale` and `time_scale` defaults (configured in `builtins.json`) optimized for desktop wallpaper use. You can override any default with CLI flags:
+
+```bash
+webwallpaper -b clouds -s 1.0 --ts 0.5
+```
+
+### Credits
+
+The built-in shaders are sourced from [ShaderToy](https://www.shadertoy.com). We are grateful to the talented shader artists who created and shared these works. A detailed list of authors and their original shader pages will be maintained here.
+
+<!-- TODO: Add individual shader credits (author, ShaderToy URL, license) -->
 
 ### Troubleshooting
 
@@ -126,8 +194,10 @@ webwallpaper --verbose https://example.com
 ```
 src/
 ├── main.rs           # Entry point, CLI dispatch, URL transformation
+├── builtin.rs        # 37 embedded shaders & textures, built-in shader extraction
 ├── cli.rs            # Argument parsing (clap)
 ├── config.rs         # Configuration and instance tracking
+├── shader.rs         # Shader file support, iChannel textures, WebGL runtime generation
 ├── server.rs         # Local HTTP server (tiny_http)
 ├── ipc.rs            # IPC (named pipes / Unix sockets)
 ├── display.rs        # Shared monitor data model
@@ -153,6 +223,8 @@ MIT
 - **本地文件支持** — 内置 HTTP 服务器，支持本地 HTML/JS/CSS 项目
 - **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式
 - **本地 `.shader` 支持** — 将单文件 ShaderToy 片段包装成全屏 WebGL 运行时
+- **iChannel 纹理** — 为使用 `iChannel0`–`iChannel3` 的 ShaderToy 着色器提供 2D 纹理（`.png`/`.jpg`）和 3D 体积纹理（`.bin`）
+- **37 款内置着色器** — 精选 ShaderToy 着色器合集，预调参数，通过 `-b <名称>` 即可开箱即用
 - **IPC 控制** — 通过命名管道 (Windows) 或 Unix Domain Socket (Linux/macOS) 远程停止壁纸
 - **优雅关闭** — Ctrl+C 处理并执行平台相关清理
 
@@ -207,6 +279,21 @@ webwallpaper ./octagrams.shader --time-scale 0.5
 # 加快动画速度，便于对比或调试
 webwallpaper ./octagrams.shader --time-scale 2.0
 
+# 带 iChannel 纹理的 Shader（2D png/jpg 或 3D .bin 体积纹理）
+webwallpaper ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textures/noise_grey.png --channel2 textures/noise_volume.bin
+
+# 使用简短别名
+webwallpaper ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
+
+# 使用内置着色器（无需任何文件）
+webwallpaper -b starnest
+
+# 列出所有可用的内置着色器
+webwallpaper -b list
+
+# 覆盖内置默认参数
+webwallpaper -b clouds -s 1.0 --ts 0.5
+
 # 本地 HTML 文件
 webwallpaper ./my-wallpaper/index.html
 
@@ -221,6 +308,7 @@ webwallpaper --stop 0
 
 # 停止所有壁纸
 webwallpaper --stopall
+webwallpaper --sa
 
 # 详细输出
 webwallpaper --verbose https://example.com
@@ -230,12 +318,17 @@ webwallpaper --verbose https://example.com
 
 | 选项 | 简写 | 描述 |
 |------|------|------|
+| `--builtin <NAME>` | `-b` | 使用内置着色器（`list` 查看全部） |
 | `--display <N>` | `-d` | 指定目标显示器（从 0 开始的索引） |
 | `--stop <N>` | | 停止显示器 N 上的壁纸 |
-| `--stopall` | | 停止所有运行中的壁纸 |
+| `--stopall` | `--sa` | 停止所有运行中的壁纸 |
 | `--port <PORT>` | `-p` | 本地文件 HTTP 服务器端口（默认：8080） |
-| `--scale <FACTOR>` | | `.shader` 输入的渲染缩放（默认：1.0） |
-| `--time-scale <FACTOR>` | | `.shader` 输入的动画时间缩放（默认：1.0） |
+| `--scale <FACTOR>` | `-s` | 渲染缩放（默认：1.0，使用 `-b` 时按内置配置） |
+| `--time-scale <FACTOR>` | `--ts` | 动画时间缩放（默认：1.0，使用 `-b` 时按内置配置） |
+| `--channel0 <FILE>` | `--c0` | iChannel0 纹理文件（2D 图片或 3D `.bin` 体积纹理） |
+| `--channel1 <FILE>` | `--c1` | iChannel1 纹理文件 |
+| `--channel2 <FILE>` | `--c2` | iChannel2 纹理文件 |
+| `--channel3 <FILE>` | `--c3` | iChannel3 纹理文件 |
 | `--verbose` | `-v` | 启用详细输出 |
 | `--help` | `-h` | 显示帮助信息 |
 | `--version` | `-V` | 显示版本信息 |
@@ -246,6 +339,51 @@ webwallpaper --verbose https://example.com
 - `--time-scale` 用于调整本地 `.shader` 输入注入的 `iTime` 和 `iTimeDelta` 速度。
 - `--time-scale 1.0` 表示原始速度，小于 `1.0` 表示减速，大于 `1.0` 表示加速，`0` 可用于冻结时间以便调试。
 - 当你只是想对比不同 shader 的动画节奏时，`--time-scale` 可以避免逐个修改 shader 源码。
+
+### iChannel 纹理
+
+许多 ShaderToy 着色器通过 `iChannel0`–`iChannel3` 读取噪声、照片或其他数据。你可以通过本地文件提供这些纹理：
+
+- **2D 纹理** — 任意图片格式（`.png`、`.jpg` 等）→ 声明为 `sampler2D`
+- **3D 体积纹理** — ShaderToy `.bin` 格式（文件头：4 字节签名 + 宽/高/深/通道数，后接 uint8 原始数据）→ 声明为 `sampler3D`
+
+文件扩展名决定类型：`.bin` = 3D 体积纹理，其他 = 2D 纹理。
+
+未提供的通道会自动声明。如果以 `sampler2D` 编译失败，引擎会自动重试 `sampler3D`——因此大多数着色器无需任何 `--channel` 参数即可运行，只是未绑定的纹理读取结果为黑色。
+
+要查看某个 ShaderToy 着色器的 iChannel 配置，在浏览器中打开该着色器页面，在开发者工具（F12）控制台中执行：
+
+```javascript
+JSON.stringify(gShaderToy.mEffect.mPasses.map((pass, pi) => ({
+  pass: pi, type: pass.mType,
+  inputs: pass.mInputs.map((inp, i) => inp ? {
+    channel: i, type: inp.mInfo.mType, src: inp.mInfo.mSrc
+  } : null).filter(x => x)
+})), null, 2)
+```
+
+然后在浏览器中从 `https://www.shadertoy.com<src路径>` 下载对应的纹理文件。
+
+### 内置着色器
+
+程序内嵌了 37 款精选着色器及其所需纹理，无需任何外部文件即可使用：
+
+```bash
+webwallpaper -b list        # 查看所有可用名称
+webwallpaper -b starnest    # 直接使用
+```
+
+每款内置着色器都有预调的 `scale` 和 `time_scale` 默认值（配置在 `builtins.json` 中），针对桌面壁纸场景优化。你可以通过命令行参数覆盖任意默认值：
+
+```bash
+webwallpaper -b clouds -s 1.0 --ts 0.5
+```
+
+### 致谢
+
+内置着色器来源于 [ShaderToy](https://www.shadertoy.com)。感谢才华横溢的着色器艺术家们创作并分享了这些精彩的作品。各着色器的作者及原始页面链接将在此处持续维护。
+
+<!-- TODO: 补充各着色器的作者、ShaderToy 链接和许可信息 -->
 
 ### 故障排除
 
@@ -262,6 +400,7 @@ src/
 ├── main.rs           # 入口点、CLI 分发、URL 转换
 ├── cli.rs            # 参数解析 (clap)
 ├── config.rs         # 配置和实例跟踪
+├── shader.rs         # Shader 文件支持、iChannel 纹理、WebGL 运行时生成
 ├── server.rs         # 本地 HTTP 服务器 (tiny_http)
 ├── ipc.rs            # 进程间通信（命名管道 / Unix Socket）
 ├── display.rs        # 共享显示器数据模型

@@ -255,7 +255,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord) {
     p.x *= RESOLUTION.x/RESOLUTION.y;
     vec3 col = vec3(0.0);
     col = effect(p, q);
-    col += 2.0*smoothstep(4.0, 0.0, TIME+length(p-vec2(0.0, 1.0)));
+    // col += 2.0*smoothstep(4.0, 0.0, TIME+length(p-vec2(0.0, 1.0))); // initial transition fade in
     col = aces_approx(col);
     col = sRGB(col);
     fragColor = vec4(col, 1.0);

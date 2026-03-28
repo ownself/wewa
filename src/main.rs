@@ -3,6 +3,7 @@
 //! A cross-platform CLI tool that renders web content (URLs or local HTML files)
 //! as desktop wallpaper, supporting multiple monitors and instance management.
 
+mod builtin;
 mod cli;
 mod config;
 mod display;
@@ -52,6 +53,7 @@ fn main() {
             port,
             scale,
             time_scale,
+            channels,
         } => handle_start(
             &config,
             &url_or_path,
@@ -59,6 +61,25 @@ fn main() {
             port,
             scale,
             time_scale,
+            &channels,
+            args.verbose,
+        ),
+
+        CommandMode::BuiltIn {
+            name,
+            display,
+            port,
+            scale,
+            time_scale,
+            channels,
+        } => handle_builtin(
+            &config,
+            &name,
+            display,
+            port,
+            scale,
+            time_scale,
+            &channels,
             args.verbose,
         ),
 
@@ -188,6 +209,7 @@ fn handle_start(
     port: u16,
     scale: f32,
     time_scale: f32,
+    channels: &[Option<String>; 4],
     verbose: bool,
 ) -> i32 {
     if verbose {
@@ -310,7 +332,7 @@ fn handle_start(
                 println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
             }
 
-            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale) {
+            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale, channels) {
                 Ok(bundle) => bundle,
                 Err(e) => {
                     eprintln!("error: {}", e);
@@ -436,6 +458,64 @@ fn handle_start(
 }
 
 /// Handle the stop command for a specific display
+fn handle_builtin(
+    config: &Config,
+    name: &str,
+    display: Option<u32>,
+    port: u16,
+    cli_scale: Option<f32>,
+    cli_time_scale: Option<f32>,
+    cli_channels: &[Option<String>; 4],
+    verbose: bool,
+) -> i32 {
+    // Handle "list" as a special name
+    if name == "list" {
+        let names = builtin::list_builtins();
+        println!("Available built-in shaders ({}):", names.len());
+        for name in &names {
+            println!("  {}", name);
+        }
+        return exit_codes::SUCCESS;
+    }
+
+    if verbose {
+        println!("[INFO] Using built-in shader: {}", name);
+    }
+
+    let result = match builtin::prepare_builtin(name) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return exit_codes::GENERAL_ERROR;
+        }
+    };
+
+    // Merge: CLI args override builtin config defaults
+    let scale = cli_scale.unwrap_or(result.config.scale);
+    let time_scale = cli_time_scale.unwrap_or(result.config.time_scale);
+    let mut channels = result.config.channels.clone();
+    for i in 0..4 {
+        if cli_channels[i].is_some() {
+            channels[i] = cli_channels[i].clone();
+        }
+    }
+
+    let shader_path_str = result.shader_path.to_string_lossy().to_string();
+    let exit = handle_start(
+        config,
+        &shader_path_str,
+        display,
+        port,
+        scale,
+        time_scale,
+        &channels,
+        verbose,
+    );
+
+    builtin::cleanup_builtin(&result);
+    exit
+}
+
 fn handle_stop(config: &Config, display_index: u32, verbose: bool) -> i32 {
     if verbose {
         println!("[INFO] Stopping wallpaper on display {}...", display_index);

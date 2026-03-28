@@ -403,14 +403,15 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
 
         // Set position and size, then show the window
         // Offset by -1 to hide the 1-pixel WebView2 border on top/left edges
+        // Add +2 to dimensions to compensate for the offset on all four edges
         unsafe {
             let _ = SetWindowPos(
                 *hwnd,
                 HWND_BOTTOM,
                 *x - 1,
                 *y - 1,
-                *width as i32,
-                *height as i32,
+                *width as i32 + 2,
+                *height as i32 + 2,
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             );
         }
