@@ -1,0 +1,154 @@
+{
+  "2dclouds": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "accretion": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "ascend": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "auroras": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "chillywave": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "chillywave2": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "classic4colors": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "clouds": {
+    "scale": 0.5,
+    "time_scale": 0.2,
+    "channel0": "noise_rgba.png",
+    "channel1": "noise_grey.png",
+    "channel2": "noise_volume.bin"
+  },
+  "crumpledwave": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "darktransit": {
+    "scale": 0.5,
+    "time_scale": 0.03
+  },
+  "forknixietubeclock": {
+    "scale": 0.5,
+    "time_scale": 1.0
+  },
+  "hexagonalgrid": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "hexneonlove": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "hieroglyphs": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "iceandfire": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "linuxwallpaper": {
+    "scale": 1.0,
+    "time_scale": 1.0
+  },
+  "mandelbrot": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "montereywannabe": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "patternminimax": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "pinkvoid": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "plasma": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "plasmawaves": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "polyhedrons": {
+    "scale": 0.5,
+    "time_scale": 0.1
+  },
+  "proteanclouds": {
+    "scale": 0.5,
+    "time_scale": 0.1
+  },
+  "ps3xmb": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "seventymelt": {
+    "scale": 0.5,
+    "time_scale": 0.3
+  },
+  "singularity": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "spiralgalaxy": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "starnest": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "starshipreentry": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "synthwavecanyon": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "tilewarppt3": {
+    "scale": 1.0,
+    "time_scale": 0.1
+  },
+  "tumblerock": {
+    "scale": 0.5,
+    "time_scale": 0.2
+  },
+  "undulatingurchin": {
+    "scale": 0.5,
+    "time_scale": 0.2,
+    "channel0": "urchin.bin"
+  },
+  "voronoigradient": {
+    "scale": 0.5,
+    "time_scale": 0.5
+  },
+  "wadongmo759": {
+    "scale": 0.8,
+    "time_scale": 0.3
+  },
+  "waveymc": {
+    "scale": 1.0,
+    "time_scale": 0.05
+  }
+}

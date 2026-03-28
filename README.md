@@ -20,6 +20,7 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 - **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format
 - **Local `.shader` Support** — Wrap single-pass ShaderToy snippets into a fullscreen WebGL runtime
 - **iChannel Textures** — Supply 2D textures (`.png`/`.jpg`) and 3D volume textures (`.bin`) for ShaderToy shaders that use `iChannel0`–`iChannel3`
+- **37 Built-in Shaders** — Curated collection of ShaderToy shaders with pre-tuned parameters, ready to use with `-b <name>`
 - **IPC Control** — Stop wallpapers remotely via named pipes (Windows) or Unix domain sockets (Linux/macOS)
 - **Graceful Shutdown** — Ctrl+C handling with platform-specific cleanup
 
@@ -80,6 +81,15 @@ webwallpaper ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textu
 # Short aliases for channel and time-scale options
 webwallpaper ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
 
+# Use a built-in shader (no files needed)
+webwallpaper -b starnest
+
+# List all available built-in shaders
+webwallpaper -b list
+
+# Override built-in defaults
+webwallpaper -b clouds -s 1.0 --ts 0.5
+
 # Local HTML file
 webwallpaper ./my-wallpaper/index.html
 
@@ -94,6 +104,7 @@ webwallpaper --stop 0
 
 # Stop all wallpapers
 webwallpaper --stopall
+webwallpaper --sa
 
 # Verbose output
 webwallpaper --verbose https://example.com
@@ -103,12 +114,13 @@ webwallpaper --verbose https://example.com
 
 | Option | Short | Description |
 |--------|-------|-------------|
+| `--builtin <NAME>` | `-b` | Use a built-in shader by name (use `list` to see all) |
 | `--display <N>` | `-d` | Target specific display (0-based index) |
 | `--stop <N>` | | Stop wallpaper on display N |
-| `--stopall` | | Stop all running wallpapers |
+| `--stopall` | `--sa` | Stop all running wallpapers |
 | `--port <PORT>` | `-p` | HTTP server port for local files (default: 8080) |
-| `--scale <FACTOR>` | `-s` | Shader render scale for `.shader` inputs (default: 1.0) |
-| `--time-scale <FACTOR>` | `--ts` | Shader animation time scale for `.shader` inputs (default: 1.0) |
+| `--scale <FACTOR>` | `-s` | Shader render scale (default: 1.0, or per-shader default with `-b`) |
+| `--time-scale <FACTOR>` | `--ts` | Shader animation time scale (default: 1.0, or per-shader default with `-b`) |
 | `--channel0 <FILE>` | `--c0` | Texture file for iChannel0 (2D image or 3D `.bin` volume) |
 | `--channel1 <FILE>` | `--c1` | Texture file for iChannel1 |
 | `--channel2 <FILE>` | `--c2` | Texture file for iChannel2 |
@@ -148,6 +160,27 @@ JSON.stringify(gShaderToy.mEffect.mPasses.map((pass, pi) => ({
 
 Then download the textures from `https://www.shadertoy.com<src_path>` in your browser.
 
+### Built-in Shaders
+
+The binary ships with 37 curated shaders and their required textures — no external files needed:
+
+```bash
+webwallpaper -b list        # see all available names
+webwallpaper -b starnest    # use it
+```
+
+Each built-in shader has pre-tuned `scale` and `time_scale` defaults (configured in `builtins.json`) optimized for desktop wallpaper use. You can override any default with CLI flags:
+
+```bash
+webwallpaper -b clouds -s 1.0 --ts 0.5
+```
+
+### Credits
+
+The built-in shaders are sourced from [ShaderToy](https://www.shadertoy.com). We are grateful to the talented shader artists who created and shared these works. A detailed list of authors and their original shader pages will be maintained here.
+
+<!-- TODO: Add individual shader credits (author, ShaderToy URL, license) -->
+
 ### Troubleshooting
 
 - **WebView2 not available (Windows)** — Install from [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/)
@@ -161,6 +194,7 @@ Then download the textures from `https://www.shadertoy.com<src_path>` in your br
 ```
 src/
 ├── main.rs           # Entry point, CLI dispatch, URL transformation
+├── builtin.rs        # 37 embedded shaders & textures, built-in shader extraction
 ├── cli.rs            # Argument parsing (clap)
 ├── config.rs         # Configuration and instance tracking
 ├── shader.rs         # Shader file support, iChannel textures, WebGL runtime generation
@@ -190,6 +224,7 @@ MIT
 - **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式
 - **本地 `.shader` 支持** — 将单文件 ShaderToy 片段包装成全屏 WebGL 运行时
 - **iChannel 纹理** — 为使用 `iChannel0`–`iChannel3` 的 ShaderToy 着色器提供 2D 纹理（`.png`/`.jpg`）和 3D 体积纹理（`.bin`）
+- **37 款内置着色器** — 精选 ShaderToy 着色器合集，预调参数，通过 `-b <名称>` 即可开箱即用
 - **IPC 控制** — 通过命名管道 (Windows) 或 Unix Domain Socket (Linux/macOS) 远程停止壁纸
 - **优雅关闭** — Ctrl+C 处理并执行平台相关清理
 
@@ -250,6 +285,15 @@ webwallpaper ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textu
 # 使用简短别名
 webwallpaper ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
 
+# 使用内置着色器（无需任何文件）
+webwallpaper -b starnest
+
+# 列出所有可用的内置着色器
+webwallpaper -b list
+
+# 覆盖内置默认参数
+webwallpaper -b clouds -s 1.0 --ts 0.5
+
 # 本地 HTML 文件
 webwallpaper ./my-wallpaper/index.html
 
@@ -264,6 +308,7 @@ webwallpaper --stop 0
 
 # 停止所有壁纸
 webwallpaper --stopall
+webwallpaper --sa
 
 # 详细输出
 webwallpaper --verbose https://example.com
@@ -273,12 +318,13 @@ webwallpaper --verbose https://example.com
 
 | 选项 | 简写 | 描述 |
 |------|------|------|
+| `--builtin <NAME>` | `-b` | 使用内置着色器（`list` 查看全部） |
 | `--display <N>` | `-d` | 指定目标显示器（从 0 开始的索引） |
 | `--stop <N>` | | 停止显示器 N 上的壁纸 |
-| `--stopall` | | 停止所有运行中的壁纸 |
+| `--stopall` | `--sa` | 停止所有运行中的壁纸 |
 | `--port <PORT>` | `-p` | 本地文件 HTTP 服务器端口（默认：8080） |
-| `--scale <FACTOR>` | `-s` | `.shader` 输入的渲染缩放（默认：1.0） |
-| `--time-scale <FACTOR>` | `--ts` | `.shader` 输入的动画时间缩放（默认：1.0） |
+| `--scale <FACTOR>` | `-s` | 渲染缩放（默认：1.0，使用 `-b` 时按内置配置） |
+| `--time-scale <FACTOR>` | `--ts` | 动画时间缩放（默认：1.0，使用 `-b` 时按内置配置） |
 | `--channel0 <FILE>` | `--c0` | iChannel0 纹理文件（2D 图片或 3D `.bin` 体积纹理） |
 | `--channel1 <FILE>` | `--c1` | iChannel1 纹理文件 |
 | `--channel2 <FILE>` | `--c2` | iChannel2 纹理文件 |
@@ -317,6 +363,27 @@ JSON.stringify(gShaderToy.mEffect.mPasses.map((pass, pi) => ({
 ```
 
 然后在浏览器中从 `https://www.shadertoy.com<src路径>` 下载对应的纹理文件。
+
+### 内置着色器
+
+程序内嵌了 37 款精选着色器及其所需纹理，无需任何外部文件即可使用：
+
+```bash
+webwallpaper -b list        # 查看所有可用名称
+webwallpaper -b starnest    # 直接使用
+```
+
+每款内置着色器都有预调的 `scale` 和 `time_scale` 默认值（配置在 `builtins.json` 中），针对桌面壁纸场景优化。你可以通过命令行参数覆盖任意默认值：
+
+```bash
+webwallpaper -b clouds -s 1.0 --ts 0.5
+```
+
+### 致谢
+
+内置着色器来源于 [ShaderToy](https://www.shadertoy.com)。感谢才华横溢的着色器艺术家们创作并分享了这些精彩的作品。各着色器的作者及原始页面链接将在此处持续维护。
+
+<!-- TODO: 补充各着色器的作者、ShaderToy 链接和许可信息 -->
 
 ### 故障排除
 

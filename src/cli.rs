@@ -22,20 +22,24 @@ pub struct CliArgs {
     pub stop: Option<u32>,
 
     /// Stop all running wallpaper instances
-    #[arg(long, conflicts_with_all = ["url_or_path", "stop"])]
+    #[arg(long, visible_alias = "sa", conflicts_with_all = ["url_or_path", "stop"])]
     pub stopall: bool,
 
     /// HTTP server port for serving local files (default: 8080)
     #[arg(short = 'p', long, default_value = "8080")]
     pub port: u16,
 
+    /// Use a built-in shader by name (use "list" to see available shaders)
+    #[arg(short = 'b', long, value_name = "NAME", conflicts_with = "url_or_path")]
+    pub builtin: Option<String>,
+
     /// Shader render scale for .shader inputs (default: 1.0)
-    #[arg(short = 's', long, default_value = "1.0")]
-    pub scale: f32,
+    #[arg(short = 's', long)]
+    pub scale: Option<f32>,
 
     /// Shader time scale for .shader inputs (default: 1.0)
-    #[arg(long, visible_alias = "ts", default_value = "1.0")]
-    pub time_scale: f32,
+    #[arg(long, visible_alias = "ts")]
+    pub time_scale: Option<f32>,
 
     /// Texture file for iChannel0 (2D image or 3D volume with .bin extension)
     #[arg(long, visible_alias = "c0")]
@@ -70,13 +74,27 @@ impl CliArgs {
             CommandMode::StopAll
         } else if let Some(display) = self.stop {
             CommandMode::Stop(display)
+        } else if let Some(ref name) = self.builtin {
+            CommandMode::BuiltIn {
+                name: name.clone(),
+                display: self.display,
+                port: self.port,
+                scale: self.scale,
+                time_scale: self.time_scale,
+                channels: [
+                    self.channel0.clone(),
+                    self.channel1.clone(),
+                    self.channel2.clone(),
+                    self.channel3.clone(),
+                ],
+            }
         } else if let Some(ref url_or_path) = self.url_or_path {
             CommandMode::Start {
                 url_or_path: url_or_path.clone(),
                 display: self.display,
                 port: self.port,
-                scale: self.scale,
-                time_scale: self.time_scale,
+                scale: self.scale.unwrap_or(1.0),
+                time_scale: self.time_scale.unwrap_or(1.0),
                 channels: [
                     self.channel0.clone(),
                     self.channel1.clone(),
@@ -100,6 +118,15 @@ pub enum CommandMode {
         port: u16,
         scale: f32,
         time_scale: f32,
+        channels: [Option<String>; 4],
+    },
+    /// Start a built-in shader by name
+    BuiltIn {
+        name: String,
+        display: Option<u32>,
+        port: u16,
+        scale: Option<f32>,
+        time_scale: Option<f32>,
         channels: [Option<String>; 4],
     },
     /// Stop wallpaper on specific display
@@ -144,12 +171,19 @@ mod tests {
     #[test]
     fn test_parse_scale_flag() {
         let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--scale", "0.5"]);
-        assert_eq!(args.scale, 0.5);
+        assert_eq!(args.scale, Some(0.5));
     }
 
     #[test]
     fn test_parse_time_scale_flag() {
         let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--time-scale", "0.5"]);
-        assert_eq!(args.time_scale, 0.5);
+        assert_eq!(args.time_scale, Some(0.5));
+    }
+
+    #[test]
+    fn test_parse_builtin_flag() {
+        let args = CliArgs::parse_from(["webwallpaper", "-b", "starnest"]);
+        assert_eq!(args.builtin, Some("starnest".to_string()));
+        assert!(args.url_or_path.is_none());
     }
 }
