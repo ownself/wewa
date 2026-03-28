@@ -7,7 +7,7 @@ vec3 color = vec3(0.2, 0.42, 0.68); // blue 1
                                     //vec3 color = vec3(0.6, 0.1, 0.3); // red
                                     //vec3 color = vec3(0.1, 0.6, 0.3); // green
 
-float width =1024.0;
+float width = 8192.0;
 
 float rand(float x) { return fract(sin(x) * 4358.5453); }
 float rand(vec2 co) { return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 3758.5357); }
