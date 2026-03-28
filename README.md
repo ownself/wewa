@@ -2,9 +2,9 @@
 
 Display web content as desktop wallpaper on Windows, Linux and macOS.
 
-A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support. Ships with **37 built-in [ShaderToy](https://www.shadertoy.com) shaders** as dynamic wallpapers — just run `webwallpaper -b <name>` and enjoy.
+A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support. Especially support ShaderToy page as **dynamic wallpaper** out of box, and also Ships with **37 built-in [ShaderToy](https://www.shadertoy.com) shaders** — just run `webwallpaper -b <name>` and enjoy.
 
-跨平台 Rust CLI 工具，将网页内容渲染为全屏桌面壁纸，支持多显示器。内置 **37 款 [ShaderToy](https://www.shadertoy.com) 着色器**作为动态壁纸，运行 `webwallpaper -b <名称>` 即可开箱即用。
+跨平台 Rust CLI 工具，将网页内容渲染为全屏桌面壁纸，支持多显示器。特别支持了ShaderToy站点的支持（传入地址即可设置为壁纸），并且内置 **37 款 [ShaderToy](https://www.shadertoy.com) 着色器**作为动态壁纸，运行 `webwallpaper -b <名称>` 即可开箱即用。
 
 ---
 
@@ -16,11 +16,9 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 
 <div align="center">
 
-Built-in wallpapers are all dynamic wallpaper and optimized with GPU performance, you can check out demonstraition video before download : **ascend** by [bug](https://www.shadertoy.com/view/33KBDm)
+Built-in wallpapers are all dynamic wallpapers and optimized with GPU performance, you can check out demonstraition from clicking preview screenshots as below to link to ShaderToy page.
 
-https://github.com/ownself/webwallpaper/raw/main/previews/ascend.mp4
-
-And all the previews show as screenshot below:
+内建的着色器壁纸均为动态壁纸，并且已优化了GPU性能，可以通过点击下方的预览图至ShaderToy站点来预览效果。
 
 </div>
 
@@ -100,8 +98,8 @@ And all the previews show as screenshot below:
 - **Cross-Platform** — Windows, Linux (Wayland) and macOS
 - **Multi-Monitor** — Apply to all displays or target specific ones
 - **Local File Support** — Built-in HTTP server for local HTML/JS/CSS projects
-- **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format
-- **Local `.shader` Support** — Wrap single-pass ShaderToy snippets into a fullscreen WebGL runtime
+- **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format. (Caution : native resolution may cause performance issues.)
+- **Local `.shader` Support** — Wrap single-pass ShaderToy snippets into a fullscreen WebGL runtime (Better performance with `--scale` parameter)
 - **iChannel Textures** — Supply 2D textures (`.png`/`.jpg`) and 3D volume textures (`.bin`) for ShaderToy shaders that use `iChannel0`–`iChannel3`
 - **37 Built-in Shaders** — Curated collection of ShaderToy shaders with pre-tuned parameters, ready to use with `-b <name>`
 - **IPC Control** — Stop wallpapers remotely via named pipes (Windows) or Unix domain sockets (Linux/macOS)
@@ -342,8 +340,8 @@ MIT
 - **跨平台** — 支持 Windows、Linux (Wayland) 和 macOS
 - **多显示器** — 应用到所有显示器或指定特定显示器
 - **本地文件支持** — 内置 HTTP 服务器，支持本地 HTML/JS/CSS 项目
-- **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式
-- **本地 `.shader` 支持** — 将单文件 ShaderToy 片段包装成全屏 WebGL 运行时
+- **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式（警告：原生分辨率可能会导致性能问题）
+- **本地 `.shader` 支持** — 将单文件 ShaderToy 片段包装成全屏 WebGL 运行时（使用`--scale`参数使得性能更友好）
 - **iChannel 纹理** — 为使用 `iChannel0`–`iChannel3` 的 ShaderToy 着色器提供 2D 纹理（`.png`/`.jpg`）和 3D 体积纹理（`.bin`）
 - **37 款内置着色器** — 精选 ShaderToy 着色器合集，预调参数，通过 `-b <名称>` 即可开箱即用
 - **IPC 控制** — 通过命名管道 (Windows) 或 Unix Domain Socket (Linux/macOS) 远程停止壁纸
