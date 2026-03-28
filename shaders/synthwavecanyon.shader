@@ -62,15 +62,19 @@ float tanh_approx(float x) {
     return clamp(x*(27.0 + x2)/(27.0+9.0*x2), -1.0, 1.0);
 }
 
-// License: Unknown, author: Unknown, found: don't remember
-float hash(float co) {
-    return fract(sin(co*12.9898) * 13758.5453);
+// Dave Hoskins' hash — portable (no sin), fast (float-only, no integer ops)
+// https://www.shadertoy.com/view/4djSRW
+float hash(float p) {
+    p = fract(p * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
 }
 
-// License: Unknown, author: Unknown, found: don't remember
 float hash(vec2 p) {
-    float a = dot (p, vec2 (127.1, 311.7));
-    return fract(sin(a)*43758.5453123);
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 // License: MIT, author: Inigo Quilez, found: https://iquilezles.org/www/index.htm
@@ -144,18 +148,14 @@ vec3 ddoffset(float z) {
 }
 
 vec4 plane(vec3 ro, vec3 rd, vec3 pp, vec3 off, float aa, float n) {
-    float h = hash(n);
-    float s = mix(0.05, 0.25, h);
-
-    vec3 hn;
     vec2 p = (pp-off*2.0*vec3(1.0, 1.0, 0.0)).xy;
 
     float he = height(vec2(p.x, pp.z));
 
     float d = p.y-he;
-    float t = smoothstep(aa, -aa, d);
+    float t = 1.0 - smoothstep(-aa, aa, d);
 
-    vec3 hsv = vec3(fract(0.7+0.125*sin(0.6*pp.z)), 0.5, smoothstep(aa, -aa, abs(d)-aa));
+    vec3 hsv = vec3(fract(0.7+0.125*sin(0.6*pp.z)), 0.5, 1.0 - smoothstep(-aa, aa, abs(d)-aa));
     float g = exp(-90.*max(abs(d), 0.0));
     hsv.z += g;
     hsv.z += (he*he-pp.y-0.125)*0.5;
@@ -168,7 +168,9 @@ float sun(vec2 p) {
     const float ch = 0.0125;
     vec2 sp = p;
     vec2 cp = p;
-    mod1(cp.y, ch*6.0);
+    float cp_y = cp.y;
+    mod1(cp_y, ch*6.0);
+    cp.y = cp_y;
     float d0 = circle(sp, 0.5);
     float d1 = planex(cp, ch);
     float d2 = p.y+ch*3.0;
@@ -178,9 +180,6 @@ float sun(vec2 p) {
 }
 
 float df(vec2 p) {
-    const vec2 off = vec2(0.0, -10.0+0.5);
-    const vec2 coff = vec2(0);
-    const float si = 5.0;
     const float sc = 25.0;
     float ds = sun(p/sc)*sc;
     float d = ds;
@@ -218,11 +217,9 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p) {
     vec3 rd = normalize(p.x*uu + p.y*vv + rdd*ww);
     vec3 nrd = normalize(np.x*uu + np.y*vv + rdd*ww);
 
-    const float planeDist = 1.0-0.5;
+    const float planeDist = 0.5;
     const int furthest = 24;
-    const int fadeFrom = max(furthest-2, 0);
-
-    const float fadeDist = planeDist*float(furthest - fadeFrom);
+    const int fadeFrom = 22; // max(furthest-2, 0)
     float nz = floor(ro.z / planeDist);
 
     vec3 skyCol = skyColor(ro, rd);
@@ -249,9 +246,9 @@ vec3 color(vec3 ww, vec3 uu, vec3 vv, vec3 ro, vec2 p) {
 
             vec4 pcol = plane(ro, rd, pp, off, aa, nz+float(i));
 
-            float nz = pp.z-ro.z;
-            float fadeIn = smoothstep(planeDist*float(furthest), planeDist*float(fadeFrom), nz);
-            float fadeOut = smoothstep(0.0, planeDist*0.1, nz);
+            float fadeZ = pp.z-ro.z;
+            float fadeIn = 1.0 - smoothstep(planeDist*float(fadeFrom), planeDist*float(furthest), fadeZ);
+            float fadeOut = smoothstep(0.0, planeDist*0.1, fadeZ);
             pcol.xyz = mix(skyCol, pcol.xyz, fadeIn);
             pcol.w *= fadeOut;
             pcol = clamp(pcol, 0.0, 1.0);

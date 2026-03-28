@@ -27,11 +27,8 @@ const float minOffsetSpread = 0.6;
 const float maxOffsetSpread = 2.0;
 const int linesPerGroup = 16;
 
-    const vec4[] bgColors = vec4[]
-(
- lineColor * 0.5,
- lineColor - vec4(0.2, 0.2, 0.7, 1)
- );
+const vec4 bgColor0 = lineColor * 0.5;
+const vec4 bgColor1 = lineColor - vec4(0.2, 0.2, 0.7, 1);
 
 #define drawCircle(pos, radius, coord) smoothstep(radius + gridSmoothWidth, radius, length(coord - (pos)))
 
@@ -99,7 +96,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         lines += line * lineColor * rand;
     }
 
-    fragColor = mix(bgColors[0], bgColors[1], uv.x);
+    fragColor = mix(bgColor0, bgColor1, uv.x);
     fragColor *= verticalFade;
     fragColor.a = 1.0;
     // debug grid:

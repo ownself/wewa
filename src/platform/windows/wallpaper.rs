@@ -491,7 +491,10 @@ fn create_wallpapers_native_gpu(configs: Vec<WallpaperConfig>) -> WallpaperResul
                 }
             }
             Event::RedrawRequested(_) => {
-                // Render a frame for each native window
+                // Render all windows on any redraw request. WorkerW child
+                // windows may not receive individual RedrawRequested events,
+                // so we render all of them together. Mailbox present mode
+                // prevents VSync blocking from halving FPS on multi-monitor.
                 for nw in &mut native_windows {
                     if let Err(e) = nw.renderer.render_frame(0.0, 0.0, 0.0, 0.0) {
                         eprintln!("[ERROR] Render error: {}", e);

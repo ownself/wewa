@@ -134,9 +134,15 @@ impl NativeRenderer {
             }
         };
 
+        // Create view with the non-sRGB format so writes bypass gamma conversion.
+        // The underlying surface is sRGB for storage precision, but the shader
+        // outputs sRGB-space colors directly — no conversion needed.
         let surface_view = output
             .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+            .create_view(&wgpu::TextureViewDescriptor {
+                format: Some(self.state.render_format),
+                ..Default::default()
+            });
 
         let mut encoder = self
             .state
@@ -165,7 +171,7 @@ impl NativeRenderer {
 
                 render_pass.set_pipeline(&self.state.pipeline);
                 render_pass.set_bind_group(0, &self.state.bind_group, &[]);
-                render_pass.draw(0..3, 0..1);
+                render_pass.draw(0..6, 0..1);
             }
 
             // Pass 2: Blit offscreen texture to surface with linear filtering
@@ -187,7 +193,7 @@ impl NativeRenderer {
 
                 blit_pass.set_pipeline(&offscreen.blit_pipeline);
                 blit_pass.set_bind_group(0, &offscreen.blit_bind_group, &[]);
-                blit_pass.draw(0..3, 0..1);
+                blit_pass.draw(0..6, 0..1);
             }
         } else {
             // Single pass: render directly to surface (scale == 1.0)
@@ -209,7 +215,7 @@ impl NativeRenderer {
 
                 render_pass.set_pipeline(&self.state.pipeline);
                 render_pass.set_bind_group(0, &self.state.bind_group, &[]);
-                render_pass.draw(0..3, 0..1);
+                render_pass.draw(0..6, 0..1);
             }
         }
 

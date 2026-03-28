@@ -1,4 +1,4 @@
-use super::shader::{WrappedShader, BLIT_SHADER_WGSL, FULLSCREEN_TRIANGLE_WGSL};
+use super::shader::{WrappedShader, BLIT_SHADER_WGSL, FULLSCREEN_QUAD_WGSL};
 use super::uniforms::ShaderToyUniforms;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use std::borrow::Cow;
@@ -9,6 +9,8 @@ pub struct PipelineState {
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface<'static>,
     pub surface_config: wgpu::SurfaceConfiguration,
+    /// Non-sRGB format used for render pass views to bypass gamma conversion.
+    pub render_format: wgpu::TextureFormat,
     pub pipeline: wgpu::RenderPipeline,
     pub uniform_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
@@ -106,25 +108,45 @@ pub unsafe fn create_wgpu_pipeline(
 
     // Configure surface at FULL window resolution (always)
     let surface_caps = surface.get_capabilities(&adapter);
-    // Prefer a non-sRGB (linear) format so the GPU does NOT apply automatic
-    // linear→sRGB gamma correction. ShaderToy shaders work in sRGB space
-    // directly; using an sRGB surface would double-gamma the output, making
-    // colors appear washed out / too bright.
+    // Prefer sRGB surface for storage precision (more bits in dark tones),
+    // but render through a non-sRGB view so the GPU does NOT apply automatic
+    // linear→sRGB gamma. ShaderToy shaders output sRGB-space colors directly;
+    // writing through a Unorm view stores them as-is with sRGB encoding benefit.
     let surface_format = surface_caps
         .formats
         .iter()
-        .find(|f| !f.is_srgb())
+        .find(|f| f.is_srgb())
         .copied()
         .unwrap_or(surface_caps.formats[0]);
+
+    // Derive the non-sRGB (linear/Unorm) variant for the render view.
+    // e.g. Bgra8UnormSrgb → Bgra8Unorm, Rgba8UnormSrgb → Rgba8Unorm
+    let render_format = match surface_format {
+        wgpu::TextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8Unorm,
+        other => other, // fallback: use as-is
+    };
+
+    // Prefer Mailbox (non-blocking triple-buffered VSync) for smooth rendering
+    // on multi-monitor setups. Fifo blocks on each surface's VSync independently,
+    // which halves FPS with 2 monitors. Mailbox drops stale frames instead.
+    let present_mode = if surface_caps
+        .present_modes
+        .contains(&wgpu::PresentMode::Mailbox)
+    {
+        wgpu::PresentMode::Mailbox
+    } else {
+        wgpu::PresentMode::Fifo
+    };
 
     let surface_config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface_format,
         width: width.max(1),
         height: height.max(1),
-        present_mode: wgpu::PresentMode::Fifo, // VSync
+        present_mode,
         alpha_mode: surface_caps.alpha_modes[0],
-        view_formats: vec![],
+        view_formats: vec![render_format],
         desired_maximum_frame_latency: 2,
     };
     surface.configure(&device, &surface_config);
@@ -132,7 +154,7 @@ pub unsafe fn create_wgpu_pipeline(
     // Create vertex shader (WGSL)
     let vertex_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("fullscreen_triangle_vertex"),
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(FULLSCREEN_TRIANGLE_WGSL)),
+        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(FULLSCREEN_QUAD_WGSL)),
     });
 
     // Create fragment shader (GLSL via naga) with error handling
@@ -234,7 +256,7 @@ pub unsafe fn create_wgpu_pipeline(
             module: &fragment_shader,
             entry_point: Some("main"),
             targets: &[Some(wgpu::ColorTargetState {
-                format: surface_format,
+                format: render_format,
                 blend: Some(wgpu::BlendState::REPLACE),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -256,7 +278,7 @@ pub unsafe fn create_wgpu_pipeline(
             &device,
             scaled_width,
             scaled_height,
-            surface_format,
+            render_format,
         ))
     } else {
         None
@@ -267,6 +289,7 @@ pub unsafe fn create_wgpu_pipeline(
         queue,
         surface,
         surface_config,
+        render_format,
         pipeline,
         uniform_buffer,
         bind_group,

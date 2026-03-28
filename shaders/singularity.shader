@@ -7,6 +7,11 @@
 FabriceNeyret2: -19
 dean_the_coder: -12
 iq: -4
+
+   Modified for naga/wgpu compatibility:
+   - Expanded mat2(cos(vec4(...))) to explicit scalar construction
+   - Extracted assignment-in-expression (a=dot(c,c))
+   - Expanded mat2(1,1,vec2) to 4 scalars
  */
 void mainImage(out vec4 O, vec2 F)
 {
@@ -19,13 +24,22 @@ void mainImage(out vec4 O, vec2 F)
          //Diagonal vector for skewing
          d = vec2(-1,1),
          //Blackhole center
-         b = p - i*d,
-         //Rotate and apply perspective
-         c = p * mat2(1, 1, d/(.1 + i/dot(b,b))),
-         //Rotate into spiraling coordinates
-         v = c * mat2(cos(.5*log(a=dot(c,c)) + iTime*i + vec4(0,33,11,0)))/i,
-         //Waves cumulative total for coloring
-         w;
+         b = p - i*d;
+
+    //Rotate and apply perspective
+    vec2 dv = d/(.1 + i/dot(b,b));
+    vec2 c = p * mat2(1.0, 1.0, dv.x, dv.y);
+
+    // Compute attenuation
+    a = dot(c,c);
+
+    //Rotate into spiraling coordinates
+    vec4 angles = .5*log(a) + iTime*i + vec4(0,33,11,0);
+    vec4 cv = cos(angles);
+    vec2 v = c * mat2(cv.x, cv.y, cv.z, cv.w) / i;
+
+    //Waves cumulative total for coloring
+    vec2 w = vec2(0.0);
 
     //Loop through waves
     for(; i++<9.; w += 1.+sin(v) )
@@ -45,23 +59,3 @@ void mainImage(out vec4 O, vec2 F)
             / ( .03 + abs( length(p)-.7 ) )
             );
 }
-
-
-
-//Original [432]
-/*
-   void mainImage(out vec4 O,in vec2 F)
-   {
-   vec2 p=(F*2.-iResolution.xy)/(iResolution.y*.7),
-   d=vec2(-1,1),
-   c=p*mat2(1,1,d/(.1+5./dot(5.*p-d,5.*p-d))),
-   v=c;
-   v*=mat2(cos(log(length(v))+iTime*.2+vec4(0,33,11,0)))*5.;
-   vec4 o=vec4(0);
-   for(float i;i++<9.;o+=sin(v.xyyx)+1.)
-   v+=.7*sin(v.yx*i+iTime)/i+.5;
-   O=1.-exp(-exp(c.x*vec4(.6,-.4,-1,0))/o
-   /(.1+.1*pow(length(sin(v/.3)*.2+c*vec2(1,2))-1.,2.))
-   /(1.+7.*exp(.3*c.y-dot(c,c)))
-   /(.03+abs(length(p)-.7))*.2);
-   }*/

@@ -6,22 +6,31 @@ pub struct WrappedShader {
     pub wrapper_line_offset: usize,
 }
 
-/// WGSL vertex shader for a fullscreen triangle (3 vertices, no vertex buffer).
+/// WGSL vertex shader for a fullscreen quad (6 vertices, two triangles, no vertex buffer).
 ///
-/// Uses `vertex_index` to compute positions that cover the entire viewport.
-/// Vertex 0: (-1, -1), Vertex 1: (3, -1), Vertex 2: (-1, 3)
-/// The triangle is clipped to the viewport, producing a fullscreen quad effect.
-pub const FULLSCREEN_TRIANGLE_WGSL: &str = r#"
+/// Uses `vertex_index` to compute positions for two triangles covering the viewport.
+/// Triangle 1: (-1,-1), (1,-1), (1,1)
+/// Triangle 2: (-1,-1), (1,1), (-1,1)
+pub const FULLSCREEN_QUAD_WGSL: &str = r#"
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
 };
 
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    // 6 vertices forming 2 triangles:
+    //   0: (-1,-1)  1: (1,-1)  2: (1,1)
+    //   3: (-1,-1)  4: (1, 1)  5: (-1,1)
+    var positions = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>( 1.0, -1.0),
+        vec2<f32>( 1.0,  1.0),
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>( 1.0,  1.0),
+        vec2<f32>(-1.0,  1.0),
+    );
     var out: VertexOutput;
-    let x = f32(i32(vertex_index & 1u) * 4 - 1);
-    let y = f32(i32(vertex_index & 2u) * 2 - 1);
-    out.position = vec4<f32>(x, y, 0.0, 1.0);
+    out.position = vec4<f32>(positions[vertex_index], 0.0, 1.0);
     return out;
 }
 "#;
@@ -41,11 +50,18 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    var positions = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>( 1.0, -1.0),
+        vec2<f32>( 1.0,  1.0),
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>( 1.0,  1.0),
+        vec2<f32>(-1.0,  1.0),
+    );
     var out: VertexOutput;
-    let x = f32(i32(vertex_index & 1u) * 4 - 1);
-    let y = f32(i32(vertex_index & 2u) * 2 - 1);
-    out.position = vec4<f32>(x, y, 0.0, 1.0);
-    out.tex_coord = vec2<f32>((x + 1.0) / 2.0, (1.0 - y) / 2.0);
+    let pos = positions[vertex_index];
+    out.position = vec4<f32>(pos, 0.0, 1.0);
+    out.tex_coord = vec2<f32>((pos.x + 1.0) / 2.0, (1.0 - pos.y) / 2.0);
     return out;
 }
 
@@ -55,14 +71,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
-/// Preprocess ShaderToy GLSL source to fix patterns that naga cannot handle.
+/// Preprocess ShaderToy GLSL source to fix patterns that naga cannot handle
+/// and to bridge Vulkan/OpenGL coordinate differences.
 ///
 /// Current fixups:
 /// - `const in` parameter qualifier → `in` (naga doesn't support dual qualifier)
+/// - `gl_FragCoord` → `_ww_FragCoord` (global variable with y-flipped coordinates,
+///    set in main() before user code runs — fixes shaders that access gl_FragCoord
+///    directly instead of through the mainImage fragCoord parameter)
 fn preprocess_shadertoy_glsl(source: &str) -> String {
-    // Replace `const in` with just `in` in function parameter declarations.
-    // This is a common ShaderToy pattern that naga's GLSL parser rejects.
-    source.replace("const in ", "in ")
+    source
+        .replace("const in ", "in ")
+        .replace("gl_FragCoord", "_ww_FragCoord")
 }
 
 /// Wrap a ShaderToy GLSL fragment shader in a complete `#version 450` program.
@@ -76,7 +96,10 @@ fn preprocess_shadertoy_glsl(source: &str) -> String {
 pub fn wrap_shadertoy_glsl(user_source: &str) -> WrappedShader {
     let preprocessed = preprocess_shadertoy_glsl(user_source);
 
-    // The wrapper preamble before user code
+    // The wrapper preamble before user code.
+    // _ww_FragCoord is a global that replaces gl_FragCoord in user code
+    // (done by preprocessing). It is set in main() with y-flipped coordinates
+    // to bridge Vulkan (y=0 top) → OpenGL/ShaderToy (y=0 bottom).
     let preamble = r#"#version 450
 precision highp float;
 
@@ -91,6 +114,8 @@ layout(set = 0, binding = 0) uniform Uniforms {
     vec4 iDate;
 };
 
+vec4 _ww_FragCoord;
+
 "#;
 
     let wrapper_line_offset = preamble.lines().count();
@@ -101,8 +126,8 @@ layout(set = 0, binding = 0) uniform Uniforms {
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    vec2 fragCoord = vec2(gl_FragCoord.x, iResolution.y - gl_FragCoord.y);
-    mainImage(outColor, fragCoord);
+    _ww_FragCoord = vec4(gl_FragCoord.x, iResolution.y - gl_FragCoord.y, gl_FragCoord.z, gl_FragCoord.w);
+    mainImage(outColor, _ww_FragCoord.xy);
 }
 "#;
 
@@ -138,8 +163,8 @@ mod tests {
         assert!(wrapped.source.contains("float iTime"));
         assert!(wrapped.source.contains("vec4 iMouse"));
         assert!(wrapped.source.contains("vec4 iDate"));
-        assert!(wrapped.source.contains(user_code));
-        assert!(wrapped.source.contains("mainImage(outColor, fragCoord)"));
+        assert!(wrapped.source.contains("_ww_FragCoord"));
+        assert!(wrapped.source.contains("mainImage(outColor, _ww_FragCoord.xy)"));
         assert!(wrapped.wrapper_line_offset > 0);
     }
 
@@ -155,8 +180,8 @@ mod tests {
 
     #[test]
     fn test_fullscreen_triangle_wgsl() {
-        assert!(FULLSCREEN_TRIANGLE_WGSL.contains("vs_main"));
-        assert!(FULLSCREEN_TRIANGLE_WGSL.contains("vertex_index"));
-        assert!(FULLSCREEN_TRIANGLE_WGSL.contains("@builtin(position)"));
+        assert!(FULLSCREEN_QUAD_WGSL.contains("vs_main"));
+        assert!(FULLSCREEN_QUAD_WGSL.contains("vertex_index"));
+        assert!(FULLSCREEN_QUAD_WGSL.contains("@builtin(position)"));
     }
 }
