@@ -14,9 +14,9 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 
 <div align="center">
 
-**ascend** by [bug](https://www.shadertoy.com/view/33KBDm)
+Wallpaper demonstraition : **ascend** by [bug](https://www.shadertoy.com/view/33KBDm)
 
-https://github.com/user/webwallpaper/raw/main/previews/ascend.mp4
+https://github.com/ownself/webwallpaper/raw/main/previews/ascend.mp4
 
 </div>
 
