@@ -10,6 +10,85 @@ A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files)
 
 ---
 
+## Preview / 预览
+
+<div align="center">
+
+**ascend** by [bug](https://www.shadertoy.com/view/33KBDm)
+
+https://github.com/user/webwallpaper/raw/main/previews/ascend.mp4
+
+</div>
+
+<table>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/4tdSWr"><img src="previews/2dclouds.png" width="200"></a><br><b>2dclouds</b><br><sub>by <a href="https://www.shadertoy.com/view/4tdSWr">drift</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/WcKXDV"><img src="previews/accretion.png" width="200"></a><br><b>accretion</b><br><sub>by <a href="https://www.shadertoy.com/view/WcKXDV">Xor</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/33KBDm"><img src="previews/ascend.png" width="200"></a><br><b>ascend</b><br><sub>by <a href="https://www.shadertoy.com/view/33KBDm">bug</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/XtGGRt"><img src="previews/auroras.png" width="200"></a><br><b>auroras</b><br><sub>by <a href="https://www.shadertoy.com/view/XtGGRt">nimitz</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/3XSBDW"><img src="previews/chillywave.png" width="200"></a><br><b>chillywave</b><br><sub>by <a href="https://www.shadertoy.com/view/3XSBDW">Tornax07</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/NflGRM"><img src="previews/chillywave2.png" width="200"></a><br><b>chillywave2</b><br><sub>by <a href="https://www.shadertoy.com/view/NflGRM">Tornax07</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/W3K3zy"><img src="previews/classic4colors.png" width="200"></a><br><b>classic4colors</b><br><sub>by <a href="https://www.shadertoy.com/view/W3K3zy">zosxavius</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/XslGRr"><img src="previews/clouds.png" width="200"></a><br><b>clouds</b><br><sub>by <a href="https://www.shadertoy.com/view/XslGRr">iq</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/3ttSzr"><img src="previews/crumpledwave.png" width="200"></a><br><b>crumpledwave</b><br><sub>by <a href="https://www.shadertoy.com/view/3ttSzr">nasana</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/WcdczB"><img src="previews/darktransit.png" width="200"></a><br><b>darktransit</b><br><sub>by <a href="https://www.shadertoy.com/view/WcdczB">diatribes</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/Dds3WB"><img src="previews/forknixietubeclock.png" width="200"></a><br><b>forknixietubeclock</b><br><sub>by <a href="https://www.shadertoy.com/view/Dds3WB">picoplanetdev</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/WtSfWK"><img src="previews/hexagonalgrid.png" width="200"></a><br><b>hexagonalgrid</b><br><sub>by <a href="https://www.shadertoy.com/view/WtSfWK">iq</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/3tKSWV"><img src="previews/hexneonlove.png" width="200"></a><br><b>hexneonlove</b><br><sub>by <a href="https://www.shadertoy.com/view/3tKSWV">tutmann</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/Nff3Ds"><img src="previews/hieroglyphs.png" width="200"></a><br><b>hieroglyphs</b><br><sub>by <a href="https://www.shadertoy.com/view/Nff3Ds">nayk</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/MdfBzl"><img src="previews/iceandfire.png" width="200"></a><br><b>iceandfire</b><br><sub>by <a href="https://www.shadertoy.com/view/MdfBzl">mattz</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/4dcGRn"><img src="previews/linuxwallpaper.png" width="200"></a><br><b>linuxwallpaper</b><br><sub>by <a href="https://www.shadertoy.com/view/4dcGRn">movAX13h</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/NlcSRj"><img src="previews/mandelbrot.png" width="200"></a><br><b>mandelbrot</b><br><sub>by <a href="https://www.shadertoy.com/view/NlcSRj">JennySchub</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/NdVfzK"><img src="previews/montereywannabe.png" width="200"></a><br><b>montereywannabe</b><br><sub>by <a href="https://www.shadertoy.com/view/NdVfzK">mrange</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/sfS3Dz"><img src="previews/patternminimax.png" width="200"></a><br><b>patternminimax</b><br><sub>by <a href="https://www.shadertoy.com/view/sfS3Dz">PAEz</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/ddKXWh"><img src="previews/pinkvoid.png" width="200"></a><br><b>pinkvoid</b><br><sub>by <a href="https://www.shadertoy.com/view/ddKXWh">iVader</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/WfS3Dd"><img src="previews/plasma.png" width="200"></a><br><b>plasma</b><br><sub>by <a href="https://www.shadertoy.com/view/WfS3Dd">Xor</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/ltXczj"><img src="previews/plasmawaves.png" width="200"></a><br><b>plasmawaves</b><br><sub>by <a href="https://www.shadertoy.com/view/ltXczj">scarletshark</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/sc2GzW"><img src="previews/polyhedrons.png" width="200"></a><br><b>polyhedrons</b><br><sub>by <a href="https://www.shadertoy.com/view/sc2GzW">yli110</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/3l23Rh"><img src="previews/proteanclouds.png" width="200"></a><br><b>proteanclouds</b><br><sub>by <a href="https://www.shadertoy.com/view/3l23Rh">nimitz</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/fcf3Dn"><img src="previews/ps3xmb.png" width="200"></a><br><b>ps3xmb</b><br><sub>by <a href="https://www.shadertoy.com/view/fcf3Dn">llmciv</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/XsX3zl"><img src="previews/seventymelt.png" width="200"></a><br><b>seventymelt</b><br><sub>by <a href="https://www.shadertoy.com/view/XsX3zl">tomorrowevening</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/3csSWB"><img src="previews/singularity.png" width="200"></a><br><b>singularity</b><br><sub>by <a href="https://www.shadertoy.com/view/3csSWB">Xor</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/wsBBWD"><img src="previews/spiralgalaxy.png" width="200"></a><br><b>spiralgalaxy</b><br><sub>by <a href="https://www.shadertoy.com/view/wsBBWD">mrange</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/XlfGRj"><img src="previews/starnest.png" width="200"></a><br><b>starnest</b><br><sub>by <a href="https://www.shadertoy.com/view/XlfGRj">Kali</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/XX3fDH"><img src="previews/starshipreentry.png" width="200"></a><br><b>starshipreentry</b><br><sub>by <a href="https://www.shadertoy.com/view/XX3fDH">negentrope</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/slcXW8"><img src="previews/synthwavecanyon.png" width="200"></a><br><b>synthwavecanyon</b><br><sub>by <a href="https://www.shadertoy.com/view/slcXW8">mrange</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/sff3RB"><img src="previews/tilewarppt3.png" width="200"></a><br><b>tilewarppt3</b><br><sub>by <a href="https://www.shadertoy.com/view/sff3RB">byt3_m3chanic</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/NcjGDh"><img src="previews/tumblerock.png" width="200"></a><br><b>tumblerock</b><br><sub>by <a href="https://www.shadertoy.com/view/NcjGDh">diatribes</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/332XWd"><img src="previews/undulatingurchin.png" width="200"></a><br><b>undulatingurchin</b><br><sub>by <a href="https://www.shadertoy.com/view/332XWd">ChunderFPV</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/WdlyRS"><img src="previews/voronoigradient.png" width="200"></a><br><b>voronoigradient</b><br><sub>by <a href="https://www.shadertoy.com/view/WdlyRS">gls9102</a></sub></td>
+<td align="center"><a href="https://www.shadertoy.com/view/fd3fD2"><img src="previews/wadongmo759.png" width="200"></a><br><b>wadongmo759</b><br><sub>by <a href="https://www.shadertoy.com/view/fd3fD2">dongmo</a></sub></td>
+</tr>
+<tr>
+<td align="center"><a href="https://www.shadertoy.com/view/NtKGWw"><img src="previews/waveymc.png" width="200"></a><br><b>waveymc</b><br><sub>by <a href="https://www.shadertoy.com/view/NtKGWw">feresr</a></sub></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</table>
+
+> All shaders are sourced from [ShaderToy](https://www.shadertoy.com). Thanks to all the talented shader artists!
+>
+> 所有着色器均来自 [ShaderToy](https://www.shadertoy.com)，感谢所有才华横溢的着色器艺术家！
+
+---
+
 ## English
 
 ### Features
@@ -177,9 +256,47 @@ webwallpaper -b clouds -s 1.0 --ts 0.5
 
 ### Credits
 
-The built-in shaders are sourced from [ShaderToy](https://www.shadertoy.com). We are grateful to the talented shader artists who created and shared these works. A detailed list of authors and their original shader pages will be maintained here.
+The built-in shaders are sourced from [ShaderToy](https://www.shadertoy.com). We are grateful to the talented shader artists who created and shared these works:
 
-<!-- TODO: Add individual shader credits (author, ShaderToy URL, license) -->
+| Shader | Author | ShaderToy |
+|--------|--------|-----------|
+| 2dclouds | drift | [4tdSWr](https://www.shadertoy.com/view/4tdSWr) |
+| accretion | Xor | [WcKXDV](https://www.shadertoy.com/view/WcKXDV) |
+| ascend | bug | [33KBDm](https://www.shadertoy.com/view/33KBDm) |
+| auroras | nimitz | [XtGGRt](https://www.shadertoy.com/view/XtGGRt) |
+| chillywave | Tornax07 | [3XSBDW](https://www.shadertoy.com/view/3XSBDW) |
+| chillywave2 | Tornax07 | [NflGRM](https://www.shadertoy.com/view/NflGRM) |
+| classic4colors | zosxavius | [W3K3zy](https://www.shadertoy.com/view/W3K3zy) |
+| clouds | iq | [XslGRr](https://www.shadertoy.com/view/XslGRr) |
+| crumpledwave | nasana | [3ttSzr](https://www.shadertoy.com/view/3ttSzr) |
+| darktransit | diatribes | [WcdczB](https://www.shadertoy.com/view/WcdczB) |
+| forknixietubeclock | picoplanetdev | [Dds3WB](https://www.shadertoy.com/view/Dds3WB) |
+| hexagonalgrid | iq | [WtSfWK](https://www.shadertoy.com/view/WtSfWK) |
+| hexneonlove | tutmann | [3tKSWV](https://www.shadertoy.com/view/3tKSWV) |
+| hieroglyphs | nayk | [Nff3Ds](https://www.shadertoy.com/view/Nff3Ds) |
+| iceandfire | mattz | [MdfBzl](https://www.shadertoy.com/view/MdfBzl) |
+| linuxwallpaper | movAX13h | [4dcGRn](https://www.shadertoy.com/view/4dcGRn) |
+| mandelbrot | JennySchub | [NlcSRj](https://www.shadertoy.com/view/NlcSRj) |
+| montereywannabe | mrange | [NdVfzK](https://www.shadertoy.com/view/NdVfzK) |
+| patternminimax | PAEz | [sfS3Dz](https://www.shadertoy.com/view/sfS3Dz) |
+| pinkvoid | iVader | [ddKXWh](https://www.shadertoy.com/view/ddKXWh) |
+| plasma | Xor | [WfS3Dd](https://www.shadertoy.com/view/WfS3Dd) |
+| plasmawaves | scarletshark | [ltXczj](https://www.shadertoy.com/view/ltXczj) |
+| polyhedrons | yli110 | [sc2GzW](https://www.shadertoy.com/view/sc2GzW) |
+| proteanclouds | nimitz | [3l23Rh](https://www.shadertoy.com/view/3l23Rh) |
+| ps3xmb | llmciv | [fcf3Dn](https://www.shadertoy.com/view/fcf3Dn) |
+| seventymelt | tomorrowevening | [XsX3zl](https://www.shadertoy.com/view/XsX3zl) |
+| singularity | Xor | [3csSWB](https://www.shadertoy.com/view/3csSWB) |
+| spiralgalaxy | mrange | [wsBBWD](https://www.shadertoy.com/view/wsBBWD) |
+| starnest | Kali | [XlfGRj](https://www.shadertoy.com/view/XlfGRj) |
+| starshipreentry | negentrope | [XX3fDH](https://www.shadertoy.com/view/XX3fDH) |
+| synthwavecanyon | mrange | [slcXW8](https://www.shadertoy.com/view/slcXW8) |
+| tilewarppt3 | byt3_m3chanic | [sff3RB](https://www.shadertoy.com/view/sff3RB) |
+| tumblerock | diatribes | [NcjGDh](https://www.shadertoy.com/view/NcjGDh) |
+| undulatingurchin | ChunderFPV | [332XWd](https://www.shadertoy.com/view/332XWd) |
+| voronoigradient | gls9102 | [WdlyRS](https://www.shadertoy.com/view/WdlyRS) |
+| wadongmo759 | dongmo | [fd3fD2](https://www.shadertoy.com/view/fd3fD2) |
+| waveymc | feresr | [NtKGWw](https://www.shadertoy.com/view/NtKGWw) |
 
 ### Troubleshooting
 
@@ -381,9 +498,47 @@ webwallpaper -b clouds -s 1.0 --ts 0.5
 
 ### 致谢
 
-内置着色器来源于 [ShaderToy](https://www.shadertoy.com)。感谢才华横溢的着色器艺术家们创作并分享了这些精彩的作品。各着色器的作者及原始页面链接将在此处持续维护。
+内置着色器来源于 [ShaderToy](https://www.shadertoy.com)。感谢才华横溢的着色器艺术家们创作并分享了这些精彩的作品：
 
-<!-- TODO: 补充各着色器的作者、ShaderToy 链接和许可信息 -->
+| 着色器 | 作者 | ShaderToy |
+|--------|------|-----------|
+| 2dclouds | drift | [4tdSWr](https://www.shadertoy.com/view/4tdSWr) |
+| accretion | Xor | [WcKXDV](https://www.shadertoy.com/view/WcKXDV) |
+| ascend | bug | [33KBDm](https://www.shadertoy.com/view/33KBDm) |
+| auroras | nimitz | [XtGGRt](https://www.shadertoy.com/view/XtGGRt) |
+| chillywave | Tornax07 | [3XSBDW](https://www.shadertoy.com/view/3XSBDW) |
+| chillywave2 | Tornax07 | [NflGRM](https://www.shadertoy.com/view/NflGRM) |
+| classic4colors | zosxavius | [W3K3zy](https://www.shadertoy.com/view/W3K3zy) |
+| clouds | iq | [XslGRr](https://www.shadertoy.com/view/XslGRr) |
+| crumpledwave | nasana | [3ttSzr](https://www.shadertoy.com/view/3ttSzr) |
+| darktransit | diatribes | [WcdczB](https://www.shadertoy.com/view/WcdczB) |
+| forknixietubeclock | picoplanetdev | [Dds3WB](https://www.shadertoy.com/view/Dds3WB) |
+| hexagonalgrid | iq | [WtSfWK](https://www.shadertoy.com/view/WtSfWK) |
+| hexneonlove | tutmann | [3tKSWV](https://www.shadertoy.com/view/3tKSWV) |
+| hieroglyphs | nayk | [Nff3Ds](https://www.shadertoy.com/view/Nff3Ds) |
+| iceandfire | mattz | [MdfBzl](https://www.shadertoy.com/view/MdfBzl) |
+| linuxwallpaper | movAX13h | [4dcGRn](https://www.shadertoy.com/view/4dcGRn) |
+| mandelbrot | JennySchub | [NlcSRj](https://www.shadertoy.com/view/NlcSRj) |
+| montereywannabe | mrange | [NdVfzK](https://www.shadertoy.com/view/NdVfzK) |
+| patternminimax | PAEz | [sfS3Dz](https://www.shadertoy.com/view/sfS3Dz) |
+| pinkvoid | iVader | [ddKXWh](https://www.shadertoy.com/view/ddKXWh) |
+| plasma | Xor | [WfS3Dd](https://www.shadertoy.com/view/WfS3Dd) |
+| plasmawaves | scarletshark | [ltXczj](https://www.shadertoy.com/view/ltXczj) |
+| polyhedrons | yli110 | [sc2GzW](https://www.shadertoy.com/view/sc2GzW) |
+| proteanclouds | nimitz | [3l23Rh](https://www.shadertoy.com/view/3l23Rh) |
+| ps3xmb | llmciv | [fcf3Dn](https://www.shadertoy.com/view/fcf3Dn) |
+| seventymelt | tomorrowevening | [XsX3zl](https://www.shadertoy.com/view/XsX3zl) |
+| singularity | Xor | [3csSWB](https://www.shadertoy.com/view/3csSWB) |
+| spiralgalaxy | mrange | [wsBBWD](https://www.shadertoy.com/view/wsBBWD) |
+| starnest | Kali | [XlfGRj](https://www.shadertoy.com/view/XlfGRj) |
+| starshipreentry | negentrope | [XX3fDH](https://www.shadertoy.com/view/XX3fDH) |
+| synthwavecanyon | mrange | [slcXW8](https://www.shadertoy.com/view/slcXW8) |
+| tilewarppt3 | byt3_m3chanic | [sff3RB](https://www.shadertoy.com/view/sff3RB) |
+| tumblerock | diatribes | [NcjGDh](https://www.shadertoy.com/view/NcjGDh) |
+| undulatingurchin | ChunderFPV | [332XWd](https://www.shadertoy.com/view/332XWd) |
+| voronoigradient | gls9102 | [WdlyRS](https://www.shadertoy.com/view/WdlyRS) |
+| wadongmo759 | dongmo | [fd3fD2](https://www.shadertoy.com/view/fd3fD2) |
+| waveymc | feresr | [NtKGWw](https://www.shadertoy.com/view/NtKGWw) |
 
 ### 故障排除
 
