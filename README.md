@@ -168,6 +168,9 @@ webwallpaper -b starnest
 # List all available built-in shaders
 webwallpaper -b list
 
+# Pick a random built-in shader
+webwallpaper -r
+
 # Override built-in defaults
 webwallpaper -b clouds -s 1.0 --ts 0.5
 
@@ -196,6 +199,7 @@ webwallpaper --verbose https://example.com
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--builtin <NAME>` | `-b` | Use a built-in shader by name (use `list` to see all) |
+| `--random` | `-r` | Use a random built-in shader |
 | `--display <N>` | `-d` | Target specific display (0-based index) |
 | `--stop <N>` | | Stop wallpaper on display N |
 | `--stopall` | `--sa` | Stop all running wallpapers |
@@ -410,6 +414,9 @@ webwallpaper -b starnest
 # 列出所有可用的内置着色器
 webwallpaper -b list
 
+# 随机选取一款内置着色器
+webwallpaper -r
+
 # 覆盖内置默认参数
 webwallpaper -b clouds -s 1.0 --ts 0.5
 
@@ -438,6 +445,7 @@ webwallpaper --verbose https://example.com
 | 选项 | 简写 | 描述 |
 |------|------|------|
 | `--builtin <NAME>` | `-b` | 使用内置着色器（`list` 查看全部） |
+| `--random` | `-r` | 随机选取一款内置着色器 |
 | `--display <N>` | `-d` | 指定目标显示器（从 0 开始的索引） |
 | `--stop <N>` | | 停止显示器 N 上的壁纸 |
 | `--stopall` | `--sa` | 停止所有运行中的壁纸 |
