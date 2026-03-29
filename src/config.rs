@@ -26,7 +26,7 @@ impl Default for Config {
 impl Config {
     /// Get the default instance directory path
     pub fn default_instance_dir() -> PathBuf {
-        std::env::temp_dir().join("webwallpaper")
+        std::env::temp_dir().join("wewa")
     }
 
     /// Ensure the instance directory exists
@@ -148,7 +148,7 @@ mod tests {
         assert!(config
             .instance_dir
             .to_string_lossy()
-            .contains("webwallpaper"));
+            .contains("wewa"));
     }
 
     #[test]

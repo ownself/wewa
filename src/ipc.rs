@@ -95,13 +95,13 @@ impl IpcResponse {
 
 /// Named pipe path for IPC
 #[cfg(target_os = "windows")]
-pub const PIPE_NAME: &str = r"\\.\pipe\webwallpaper_control";
+pub const PIPE_NAME: &str = r"\\.\pipe\wewa_control";
 
 #[cfg(unix)]
 fn socket_path() -> PathBuf {
     std::env::temp_dir()
-        .join("webwallpaper")
-        .join("webwallpaper_control.sock")
+        .join("wewa")
+        .join("wewa_control.sock")
 }
 
 /// IPC server that listens for commands

@@ -234,7 +234,7 @@ fn unique_shader_dir() -> Result<PathBuf, String> {
         .as_millis();
 
     Ok(std::env::temp_dir().join(format!(
-        "webwallpaper_shader_{}_{}",
+        "wewa_shader_{}_{}",
         std::process::id(),
         timestamp
     )))
@@ -269,7 +269,7 @@ fn build_shader_html(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WebWallpaper Shader</title>
+  <title>wewa Shader</title>
   <style>
     :root {{
       color-scheme: dark;
@@ -637,7 +637,7 @@ mod tests {
     #[test]
     fn test_create_shader_bundle() {
         let temp_path = std::env::temp_dir().join(format!(
-            "webwallpaper_test_shader_{}_{}.shader",
+            "wewa_test_shader_{}_{}.shader",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

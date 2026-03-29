@@ -1,12 +1,12 @@
 //! CLI argument parsing using clap derive
 //!
-//! Defines the command-line interface for webwallpaper.
+//! Defines the command-line interface for wewa.
 
 use clap::Parser;
 
 /// Display web content as desktop wallpaper
 #[derive(Parser, Debug)]
-#[command(name = "webwallpaper")]
+#[command(name = "wewa")]
 #[command(author, version, about, long_about = None)]
 pub struct CliArgs {
     /// URL or local file path to display as wallpaper
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_parse_url() {
-        let args = CliArgs::parse_from(["webwallpaper", "https://example.com"]);
+        let args = CliArgs::parse_from(["wewa", "https://example.com"]);
         assert_eq!(args.url_or_path, Some("https://example.com".to_string()));
         assert!(!args.stopall);
         assert!(args.stop.is_none());
@@ -175,38 +175,38 @@ mod tests {
 
     #[test]
     fn test_parse_stop() {
-        let args = CliArgs::parse_from(["webwallpaper", "--stop", "0"]);
+        let args = CliArgs::parse_from(["wewa", "--stop", "0"]);
         assert_eq!(args.stop, Some(0));
         assert!(args.url_or_path.is_none());
     }
 
     #[test]
     fn test_parse_stopall() {
-        let args = CliArgs::parse_from(["webwallpaper", "--stopall"]);
+        let args = CliArgs::parse_from(["wewa", "--stopall"]);
         assert!(args.stopall);
     }
 
     #[test]
     fn test_parse_display_flag() {
-        let args = CliArgs::parse_from(["webwallpaper", "https://example.com", "-d", "1"]);
+        let args = CliArgs::parse_from(["wewa", "https://example.com", "-d", "1"]);
         assert_eq!(args.display, Some(1));
     }
 
     #[test]
     fn test_parse_scale_flag() {
-        let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--scale", "0.5"]);
+        let args = CliArgs::parse_from(["wewa", "demo.shader", "--scale", "0.5"]);
         assert_eq!(args.scale, Some(0.5));
     }
 
     #[test]
     fn test_parse_time_scale_flag() {
-        let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--time-scale", "0.5"]);
+        let args = CliArgs::parse_from(["wewa", "demo.shader", "--time-scale", "0.5"]);
         assert_eq!(args.time_scale, Some(0.5));
     }
 
     #[test]
     fn test_parse_random_flag() {
-        let args = CliArgs::parse_from(["webwallpaper", "-r"]);
+        let args = CliArgs::parse_from(["wewa", "-r"]);
         assert!(args.random);
         assert!(args.url_or_path.is_none());
         assert!(args.builtin.is_none());
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_parse_builtin_flag() {
-        let args = CliArgs::parse_from(["webwallpaper", "-b", "starnest"]);
+        let args = CliArgs::parse_from(["wewa", "-b", "starnest"]);
         assert_eq!(args.builtin, Some("starnest".to_string()));
         assert!(args.url_or_path.is_none());
     }

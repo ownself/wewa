@@ -1,10 +1,10 @@
-# WebWallpaper
+# wewa
 
 Display web content as desktop wallpaper on Windows, Linux and macOS.
 
-A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support. Especially support ShaderToy page as **dynamic wallpaper** out of box, and also Ships with **37 built-in [ShaderToy](https://www.shadertoy.com) shaders** — just run `webwallpaper -b <name>` and enjoy.
+A cross-platform Rust CLI tool that renders web pages (URLs or local HTML files) as fullscreen desktop wallpaper with multi-monitor support. Especially support ShaderToy page as **dynamic wallpaper** out of box, and also Ships with **37 built-in [ShaderToy](https://www.shadertoy.com) shaders** — just run `wewa -b <name>` and enjoy.
 
-跨平台 Rust CLI 工具，将网页内容渲染为全屏桌面壁纸，支持多显示器。特别支持了ShaderToy站点的支持（传入地址即可设置为壁纸），并且内置 **37 款 [ShaderToy](https://www.shadertoy.com) 着色器**作为动态壁纸，运行 `webwallpaper -b <名称>` 即可开箱即用。
+跨平台 Rust CLI 工具，将网页内容渲染为全屏桌面壁纸，支持多显示器。特别支持了ShaderToy站点的支持（传入地址即可设置为壁纸），并且内置 **37 款 [ShaderToy](https://www.shadertoy.com) 着色器**作为动态壁纸，运行 `wewa -b <名称>` 即可开箱即用。
 
 ---
 
@@ -122,76 +122,76 @@ Built-in wallpapers are all dynamic wallpapers and optimized with GPU performanc
 ### Installation
 
 ```bash
-git clone https://github.com/user/webwallpaper.git
-cd webwallpaper
+git clone https://github.com/ownself/wewa.git
+cd wewa
 
 # Linux dependencies (Debian/Ubuntu)
 sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev
 
 cargo build --release
-# Binary: target/release/webwallpaper(.exe)
+# Binary: target/release/wewa(.exe)
 ```
 
 ### Usage
 
 ```bash
 # URL as wallpaper (all monitors)
-webwallpaper https://example.com/wallpaper.html
+wewa https://example.com/wallpaper.html
 
 # Target a specific monitor (0-based index)
-webwallpaper https://example.com --display 0
+wewa https://example.com --display 0
 
 # ShaderToy (auto-converted to fullscreen embed)
-webwallpaper "https://www.shadertoy.com/view/tlVGDt"
+wewa "https://www.shadertoy.com/view/tlVGDt"
 
 # Local ShaderToy-style shader with default full-resolution rendering
-webwallpaper ./octagrams.shader
+wewa ./octagrams.shader
 
 # Lower shader render scale for better performance
-webwallpaper ./octagrams.shader --scale 0.5
+wewa ./octagrams.shader --scale 0.5
 
 # Slow down shader animation without changing shader source
-webwallpaper ./octagrams.shader --time-scale 0.5
+wewa ./octagrams.shader --time-scale 0.5
 
 # Speed up shader animation for comparison or debugging
-webwallpaper ./octagrams.shader --time-scale 2.0
+wewa ./octagrams.shader --time-scale 2.0
 
 # Shader with iChannel textures (2D png/jpg or 3D .bin volume)
-webwallpaper ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textures/noise_grey.png --channel2 textures/noise_volume.bin
+wewa ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textures/noise_grey.png --channel2 textures/noise_volume.bin
 
 # Short aliases for channel and time-scale options
-webwallpaper ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
+wewa ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
 
 # Use a built-in shader (no files needed)
-webwallpaper -b starnest
+wewa -b starnest
 
 # List all available built-in shaders
-webwallpaper -b list
+wewa -b list
 
 # Pick a random built-in shader
-webwallpaper -r
+wewa -r
 
 # Override built-in defaults
-webwallpaper -b clouds -s 1.0 --ts 0.5
+wewa -b clouds -s 1.0 --ts 0.5
 
 # Local HTML file
-webwallpaper ./my-wallpaper/index.html
+wewa ./my-wallpaper/index.html
 
 # Directory containing index.html
-webwallpaper ./my-wallpaper/
+wewa ./my-wallpaper/
 
 # Custom HTTP server port
-webwallpaper ./wallpaper.html --port 9000
+wewa ./wallpaper.html --port 9000
 
 # Stop wallpaper on display 0
-webwallpaper --stop 0
+wewa --stop 0
 
 # Stop all wallpapers
-webwallpaper --stopall
-webwallpaper --sa
+wewa --stopall
+wewa --sa
 
 # Verbose output
-webwallpaper --verbose https://example.com
+wewa --verbose https://example.com
 ```
 
 ### Command Line Options
@@ -250,14 +250,14 @@ Then download the textures from `https://www.shadertoy.com<src_path>` in your br
 The binary ships with 37 curated shaders and their required textures — no external files needed:
 
 ```bash
-webwallpaper -b list        # see all available names
-webwallpaper -b starnest    # use it
+wewa -b list        # see all available names
+wewa -b starnest    # use it
 ```
 
 Each built-in shader has pre-tuned `scale` and `time_scale` defaults (configured in `builtins.json`) optimized for desktop wallpaper use. You can override any default with CLI flags:
 
 ```bash
-webwallpaper -b clouds -s 1.0 --ts 0.5
+wewa -b clouds -s 1.0 --ts 0.5
 ```
 
 ### Credits
@@ -368,76 +368,76 @@ MIT
 ### 安装
 
 ```bash
-git clone https://github.com/user/webwallpaper.git
-cd webwallpaper
+git clone https://github.com/ownself/wewa.git
+cd wewa
 
 # Linux 依赖（Debian/Ubuntu 系）
 sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev
 
 cargo build --release
-# 二进制文件：target/release/webwallpaper(.exe)
+# 二进制文件：target/release/wewa(.exe)
 ```
 
 ### 使用方法
 
 ```bash
 # 将 URL 设为壁纸（所有显示器）
-webwallpaper https://example.com/wallpaper.html
+wewa https://example.com/wallpaper.html
 
 # 指定显示器（从 0 开始的索引）
-webwallpaper https://example.com --display 0
+wewa https://example.com --display 0
 
 # ShaderToy（自动转换为全屏嵌入格式）
-webwallpaper "https://www.shadertoy.com/view/tlVGDt"
+wewa "https://www.shadertoy.com/view/tlVGDt"
 
 # 本地 ShaderToy 风格着色器
-webwallpaper ./octagrams.shader
+wewa ./octagrams.shader
 
 # 降低渲染缩放以提升性能
-webwallpaper ./octagrams.shader --scale 0.5
+wewa ./octagrams.shader --scale 0.5
 
 # 不修改 shader 源码，直接放慢动画速度
-webwallpaper ./octagrams.shader --time-scale 0.5
+wewa ./octagrams.shader --time-scale 0.5
 
 # 加快动画速度，便于对比或调试
-webwallpaper ./octagrams.shader --time-scale 2.0
+wewa ./octagrams.shader --time-scale 2.0
 
 # 带 iChannel 纹理的 Shader（2D png/jpg 或 3D .bin 体积纹理）
-webwallpaper ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textures/noise_grey.png --channel2 textures/noise_volume.bin
+wewa ./clouds.shader --channel0 textures/noise_rgba.png --channel1 textures/noise_grey.png --channel2 textures/noise_volume.bin
 
 # 使用简短别名
-webwallpaper ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
+wewa ./clouds.shader --c0 textures/noise_rgba.png --c1 textures/noise_grey.png --ts 0.5
 
 # 使用内置着色器（无需任何文件）
-webwallpaper -b starnest
+wewa -b starnest
 
 # 列出所有可用的内置着色器
-webwallpaper -b list
+wewa -b list
 
 # 随机选取一款内置着色器
-webwallpaper -r
+wewa -r
 
 # 覆盖内置默认参数
-webwallpaper -b clouds -s 1.0 --ts 0.5
+wewa -b clouds -s 1.0 --ts 0.5
 
 # 本地 HTML 文件
-webwallpaper ./my-wallpaper/index.html
+wewa ./my-wallpaper/index.html
 
 # 包含 index.html 的目录
-webwallpaper ./my-wallpaper/
+wewa ./my-wallpaper/
 
 # 自定义 HTTP 服务器端口
-webwallpaper ./wallpaper.html --port 9000
+wewa ./wallpaper.html --port 9000
 
 # 停止显示器 0 上的壁纸
-webwallpaper --stop 0
+wewa --stop 0
 
 # 停止所有壁纸
-webwallpaper --stopall
-webwallpaper --sa
+wewa --stopall
+wewa --sa
 
 # 详细输出
-webwallpaper --verbose https://example.com
+wewa --verbose https://example.com
 ```
 
 ### 命令行选项
@@ -496,14 +496,14 @@ JSON.stringify(gShaderToy.mEffect.mPasses.map((pass, pi) => ({
 程序内嵌了 37 款精选着色器及其所需纹理，无需任何外部文件即可使用：
 
 ```bash
-webwallpaper -b list        # 查看所有可用名称
-webwallpaper -b starnest    # 直接使用
+wewa -b list        # 查看所有可用名称
+wewa -b starnest    # 直接使用
 ```
 
 每款内置着色器都有预调的 `scale` 和 `time_scale` 默认值（配置在 `builtins.json` 中），针对桌面壁纸场景优化。你可以通过命令行参数覆盖任意默认值：
 
 ```bash
-webwallpaper -b clouds -s 1.0 --ts 0.5
+wewa -b clouds -s 1.0 --ts 0.5
 ```
 
 ### 致谢
