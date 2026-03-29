@@ -33,6 +33,10 @@ pub struct CliArgs {
     #[arg(short = 'b', long, value_name = "NAME", conflicts_with = "url_or_path")]
     pub builtin: Option<String>,
 
+    /// Use a random built-in shader
+    #[arg(short = 'r', long, conflicts_with_all = ["url_or_path", "builtin"])]
+    pub random: bool,
+
     /// Shader render scale for .shader inputs (default: 1.0)
     #[arg(short = 's', long)]
     pub scale: Option<f32>,
@@ -74,6 +78,26 @@ impl CliArgs {
             CommandMode::StopAll
         } else if let Some(display) = self.stop {
             CommandMode::Stop(display)
+        } else if self.random {
+            let names = crate::builtin::list_builtins();
+            let idx = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos() as usize
+                % names.len();
+            CommandMode::BuiltIn {
+                name: names[idx].clone(),
+                display: self.display,
+                port: self.port,
+                scale: self.scale,
+                time_scale: self.time_scale,
+                channels: [
+                    self.channel0.clone(),
+                    self.channel1.clone(),
+                    self.channel2.clone(),
+                    self.channel3.clone(),
+                ],
+            }
         } else if let Some(ref name) = self.builtin {
             CommandMode::BuiltIn {
                 name: name.clone(),
@@ -178,6 +202,21 @@ mod tests {
     fn test_parse_time_scale_flag() {
         let args = CliArgs::parse_from(["webwallpaper", "demo.shader", "--time-scale", "0.5"]);
         assert_eq!(args.time_scale, Some(0.5));
+    }
+
+    #[test]
+    fn test_parse_random_flag() {
+        let args = CliArgs::parse_from(["webwallpaper", "-r"]);
+        assert!(args.random);
+        assert!(args.url_or_path.is_none());
+        assert!(args.builtin.is_none());
+        match args.mode() {
+            CommandMode::BuiltIn { name, .. } => {
+                let all = crate::builtin::list_builtins();
+                assert!(all.contains(&name));
+            }
+            _ => panic!("Expected BuiltIn mode"),
+        }
     }
 
     #[test]
