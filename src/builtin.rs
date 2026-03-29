@@ -140,7 +140,7 @@ fn builtin_temp_dir() -> Result<PathBuf, String> {
         .map_err(|e| format!("System clock error: {}", e))?
         .as_millis();
     Ok(std::env::temp_dir().join(format!(
-        "webwallpaper_builtin_{}_{}",
+        "wewa_builtin_{}_{}",
         std::process::id(),
         timestamp
     )))

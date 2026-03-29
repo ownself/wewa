@@ -1,4 +1,4 @@
-//! WebWallpaper - Display web content as desktop wallpaper
+//! wewa - Display web content as desktop wallpaper
 //!
 //! A cross-platform CLI tool that renders web content (URLs or local HTML files)
 //! as desktop wallpaper, supporting multiple monitors and instance management.
@@ -41,7 +41,7 @@ fn main() {
 
     // Handle verbose mode
     if args.verbose {
-        println!("[INFO] WebWallpaper v{}", env!("CARGO_PKG_VERSION"));
+        println!("[INFO] wewa v{}", env!("CARGO_PKG_VERSION"));
         println!("[INFO] Instance directory: {:?}", config.instance_dir);
     }
 
@@ -89,11 +89,11 @@ fn main() {
 
         CommandMode::ShowHelp => {
             // clap will show help automatically, but if we get here, show usage
-            eprintln!("Usage: webwallpaper [OPTIONS] [URL_OR_PATH]");
-            eprintln!("       webwallpaper --stop <DISPLAY>");
-            eprintln!("       webwallpaper --stopall");
+            eprintln!("Usage: wewa [OPTIONS] [URL_OR_PATH]");
+            eprintln!("       wewa --stop <DISPLAY>");
+            eprintln!("       wewa --stopall");
             eprintln!();
-            eprintln!("Run 'webwallpaper --help' for more information.");
+            eprintln!("Run 'wewa --help' for more information.");
             exit_codes::GENERAL_ERROR
         }
     };

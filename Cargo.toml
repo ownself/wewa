@@ -1,11 +1,11 @@
 [package]
-name = "webwallpaper"
+name = "wewa"
 version = "0.2.0"
 edition = "2021"
 description = "Display web content as desktop wallpaper"
 license = "MIT"
-authors = ["WebWallpaper Contributors"]
-repository = "https://github.com/user/webwallpaper"
+authors = ["wewa Contributors"]
+repository = "https://github.com/user/wewa"
 keywords = ["wallpaper", "webview", "desktop", "cli"]
 categories = ["command-line-utilities", "gui"]
 

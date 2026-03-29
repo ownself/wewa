@@ -315,7 +315,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         // CRITICAL: Create window as HIDDEN first to prevent window managers from capturing it
         // We'll show it after attaching to WorkerW
         let window = WindowBuilder::new()
-            .with_title(format!("WebWallpaper - Display {}", config.display.index))
+            .with_title(format!("wewa - Display {}", config.display.index))
             .with_position(PhysicalPosition::new(config.display.x, config.display.y))
             .with_inner_size(PhysicalSize::new(
                 config.display.width,

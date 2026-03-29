@@ -102,7 +102,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         }
 
         let window = WindowBuilder::new()
-            .with_title(format!("WebWallpaper - Display {}", config.display.index))
+            .with_title(format!("wewa - Display {}", config.display.index))
             .with_position(LogicalPosition::new(config.display.x, config.display.y))
             .with_inner_size(LogicalSize::new(
                 config.display.width,

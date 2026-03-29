@@ -2652,7 +2652,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "webwallpaper"
+name = "wewa"
 version = "0.2.0"
 dependencies = [
  "chrono",

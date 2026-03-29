@@ -19,7 +19,7 @@ use wry::{WebView, WebViewBuilder, WebViewBuilderExtUnix};
 const DISABLE_POINTER_REACTIONS_SCRIPT: &str = r#"
 (() => {
   const style = document.createElement('style');
-  style.id = '__webwallpaper_disable_pointer_reactions';
+  style.id = '__wewa_disable_pointer_reactions';
   style.textContent = `
     html, body, body * {
       cursor: default !important;
@@ -154,7 +154,7 @@ fn create_wallpaper_window(
     })?;
 
     let window = Window::new(WindowType::Toplevel);
-    window.set_title("WebWallpaper");
+    window.set_title("wewa");
     window.set_decorated(false);
     window.set_resizable(false);
     window.set_accept_focus(false);
@@ -165,7 +165,7 @@ fn create_wallpaper_window(
     window.set_default_size(config.display.width as i32, config.display.height as i32);
 
     window.init_layer_shell();
-    window.set_namespace("webwallpaper");
+    window.set_namespace("wewa");
     window.set_layer(Layer::Background);
     window.set_keyboard_mode(KeyboardMode::None);
     window.set_anchor(Edge::Left, true);
