@@ -81,6 +81,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
 /// Create wallpapers using native wgpu GPU rendering for shader files on Linux.
 fn create_wallpapers_native_gpu(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
     use crate::renderer::NativeRenderer;
+    use std::{ffi::c_void, ptr::NonNull};
     use raw_window_handle::{
         RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle,
         XlibDisplayHandle, XlibWindowHandle,
@@ -178,37 +179,31 @@ fn create_wallpapers_native_gpu(configs: Vec<WallpaperConfig>) -> WallpaperResul
         // Determine if we're on Wayland or X11
         let (raw_window, raw_display) = unsafe {
             if gdk_display_ref.type_().name() == "GdkWaylandDisplay" {
-                use gdk_sys::{
+                use gdk_wayland_sys::{
                     gdk_wayland_display_get_wl_display, gdk_wayland_window_get_wl_surface,
                 };
-                use glib::translate::ToGlibPtr;
 
-                let wl_surface =
-                    gdk_wayland_window_get_wl_surface(gdk_window.to_glib_none().0 as *mut _);
+                let wl_surface = gdk_wayland_window_get_wl_surface(gdk_window.as_ptr() as *mut _);
                 let wl_display =
-                    gdk_wayland_display_get_wl_display(gdk_display_ref.to_glib_none().0 as *mut _);
+                    gdk_wayland_display_get_wl_display(gdk_display_ref.as_ptr() as *mut _);
 
                 let raw_window = RawWindowHandle::Wayland(WaylandWindowHandle::new(
-                    std::num::NonZero::new(wl_surface as isize).expect("wl_surface is null"),
+                    NonNull::new(wl_surface as *mut c_void).expect("wl_surface is null"),
                 ));
                 let raw_display = RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
-                    std::num::NonZero::new(wl_display as isize).expect("wl_display is null"),
+                    NonNull::new(wl_display as *mut c_void).expect("wl_display is null"),
                 ));
                 (raw_window, raw_display)
             } else {
                 // X11 fallback
-                use gdk_sys::{gdk_x11_display_get_xdisplay, gdk_x11_window_get_xid};
-                use glib::translate::ToGlibPtr;
+                use gdk_x11_sys::{gdk_x11_display_get_xdisplay, gdk_x11_window_get_xid};
 
-                let xid = gdk_x11_window_get_xid(gdk_window.to_glib_none().0 as *mut _);
-                let x_display =
-                    gdk_x11_display_get_xdisplay(gdk_display_ref.to_glib_none().0 as *mut _);
+                let xid = gdk_x11_window_get_xid(gdk_window.as_ptr() as *mut _);
+                let x_display = gdk_x11_display_get_xdisplay(gdk_display_ref.as_ptr() as *mut _);
 
                 let raw_window = RawWindowHandle::Xlib(XlibWindowHandle::new(xid as u64));
-                let mut raw_display_handle = XlibDisplayHandle::new(
-                    std::num::NonZero::new(x_display as isize),
-                    0,
-                );
+                let raw_display_handle =
+                    XlibDisplayHandle::new(NonNull::new(x_display as *mut c_void), 0);
                 let raw_display = RawDisplayHandle::Xlib(raw_display_handle);
                 (raw_window, raw_display)
             }

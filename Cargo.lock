@@ -3146,6 +3146,8 @@ dependencies = [
  "ctrlc",
  "dirs",
  "gdk",
+ "gdkwayland-sys",
+ "gdkx11-sys",
  "glib",
  "gtk",
  "gtk-layer-shell",

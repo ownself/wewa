@@ -58,6 +58,8 @@ core-graphics = "0.24"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gdk = { version = "0.18", features = ["v3_24"] }
+gdkwayland-sys = "0.18"
+gdkx11-sys = "0.18"
 glib = "0.18"
 gtk = { version = "0.18", features = ["v3_24"] }
 gtk-layer-shell = { version = "0.8.2", features = ["v0_6"] }
