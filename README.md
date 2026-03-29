@@ -121,6 +121,23 @@ Built-in wallpapers are all dynamic wallpapers and optimized with GPU performanc
 
 ### Installation
 
+#### Package Managers
+
+```bash
+# Homebrew
+brew tap ownself/app-distribution https://github.com/ownself/app-distribution
+brew install wewa
+
+# Scoop
+scoop bucket add ownself-app-distribution https://github.com/ownself/app-distribution
+scoop install wewa
+
+# AUR
+yay -S wewa-bin
+```
+
+#### Build from Source
+
 ```bash
 git clone https://github.com/ownself/wewa.git
 cd wewa
@@ -366,6 +383,23 @@ MIT
 - **macOS** — macOS 10.10+；无额外依赖（WKWebView 为系统框架）
 
 ### 安装
+
+#### 包管理器安装
+
+```bash
+# Homebrew
+brew tap ownself/app-distribution https://github.com/ownself/app-distribution
+brew install wewa
+
+# Scoop
+scoop bucket add ownself-app-distribution https://github.com/ownself/app-distribution
+scoop install wewa
+
+# AUR
+yay -S wewa-bin
+```
+
+#### 从源码构建
 
 ```bash
 git clone https://github.com/ownself/wewa.git
