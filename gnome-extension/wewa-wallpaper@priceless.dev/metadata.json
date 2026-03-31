@@ -1,0 +1,8 @@
+{
+  "uuid": "wewa-wallpaper@priceless.dev",
+  "name": "Wewa Wallpaper",
+  "description": "Companion extension for wewa — pins wewa windows below all other windows and hides them from Alt+Tab and Activities overview.",
+  "shell-version": ["45", "46", "47", "48", "49"],
+  "version": 1,
+  "url": "https://github.com/priceless-tag/wewa"
+}
