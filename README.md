@@ -95,7 +95,7 @@ Built-in wallpapers are all dynamic wallpapers and optimized with GPU performanc
 
 ### Features
 
-- **Cross-Platform** — Windows, Linux (Wayland) and macOS
+- **Cross-Platform** — Windows, Linux (Wayland: Hyprland, Sway, KDE 6+, GNOME) and macOS
 - **Multi-Monitor** — Apply to all displays or target specific ones
 - **Local File Support** — Built-in HTTP server for local HTML/JS/CSS projects
 - **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format. (Caution : native resolution may cause performance issues.)
@@ -110,13 +110,15 @@ Built-in wallpapers are all dynamic wallpapers and optimized with GPU performanc
 | Platform | Technique | WebView Backend |
 |----------|-----------|-----------------|
 | Windows | WorkerW desktop embedding | WebView2 (Edge) |
-| Linux | GTK layer-shell background surface | WebKitGTK |
+| Linux (Hyprland, Sway, KDE 6+) | GTK layer-shell background surface | WebKitGTK |
+| Linux (GNOME) | GTK window + companion GNOME Shell extension | WebKitGTK |
 | macOS | NSWindow desktop-level ordering | WKWebView |
 
 ### Requirements
 
 - **Windows** — Windows 10 (April 2018+) or Windows 11; WebView2 Runtime (usually pre-installed)
-- **Linux** — Wayland session with layer-shell support (e.g. Hyprland); GTK 3, WebKitGTK, gtk-layer-shell
+- **Linux (Hyprland / Sway / KDE 6+)** — Wayland session with layer-shell support; GTK 3, WebKitGTK, gtk-layer-shell
+- **Linux (GNOME)** — GNOME Shell 45+; GTK 3, WebKitGTK. A companion GNOME Shell extension is **automatically installed** on first run. A one-time log-out/log-in is required to activate the extension.
 - **macOS** — macOS 10.10+; no additional dependencies (WKWebView is a system framework)
 
 ### Installation
@@ -324,7 +326,8 @@ The built-in shaders are sourced from [ShaderToy](https://www.shadertoy.com). We
 ### Troubleshooting
 
 - **WebView2 not available (Windows)** — Install from [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/)
-- **Layer-shell not available (Linux)** — Ensure you are on a Wayland session with a layer-shell compositor (e.g. Hyprland), and install `libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev`
+- **Layer-shell not available (Linux)** — Ensure you are on a Wayland session with a layer-shell compositor (e.g. Hyprland, Sway, KDE 6+), and install `libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev`
+- **GNOME: "please log out and log back in"** — On first run, wewa automatically installs its companion GNOME Shell extension. GNOME Shell must be restarted to load new extensions, and on Wayland the only way is to log out and log back in. Subsequent runs will work without restart.
 - **Port already in use** — Use `--port 9000` to pick a different port
 - **Shader performance is poor** — Use `--scale 0.5` or `--scale 0.75` for `.shader` inputs
 - **Finding display numbers** — Run with `--verbose` to list detected displays
@@ -358,7 +361,7 @@ MIT
 
 ### 功能特性
 
-- **跨平台** — 支持 Windows、Linux (Wayland) 和 macOS
+- **跨平台** — 支持 Windows、Linux（Wayland：Hyprland、Sway、KDE 6+、GNOME）和 macOS
 - **多显示器** — 应用到所有显示器或指定特定显示器
 - **本地文件支持** — 内置 HTTP 服务器，支持本地 HTML/JS/CSS 项目
 - **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式（警告：原生分辨率可能会导致性能问题）
@@ -373,13 +376,15 @@ MIT
 | 平台 | 技术方案 | WebView 后端 |
 |------|----------|-------------|
 | Windows | WorkerW 桌面嵌入 | WebView2 (Edge) |
-| Linux | GTK layer-shell 背景层 | WebKitGTK |
+| Linux (Hyprland, Sway, KDE 6+) | GTK layer-shell 背景层 | WebKitGTK |
+| Linux (GNOME) | GTK 窗口 + GNOME Shell 配套扩展 | WebKitGTK |
 | macOS | NSWindow 桌面层级窗口 | WKWebView |
 
 ### 系统要求
 
 - **Windows** — Windows 10 (2018年4月更新+) 或 Windows 11；WebView2 运行时（通常已预装）
-- **Linux** — 支持 layer-shell 的 Wayland 会话（如 Hyprland）；GTK 3、WebKitGTK、gtk-layer-shell
+- **Linux (Hyprland / Sway / KDE 6+)** — 支持 layer-shell 的 Wayland 会话；GTK 3、WebKitGTK、gtk-layer-shell
+- **Linux (GNOME)** — GNOME Shell 45+；GTK 3、WebKitGTK。配套 GNOME Shell 扩展会在**首次运行时自动安装**，需注销并重新登录一次以激活扩展。
 - **macOS** — macOS 10.10+；无额外依赖（WKWebView 为系统框架）
 
 ### 安装
@@ -587,7 +592,8 @@ wewa -b clouds -s 1.0 --ts 0.5
 ### 故障排除
 
 - **WebView2 不可用 (Windows)** — 从 [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/) 安装
-- **Layer-shell 不可用 (Linux)** — 确认在支持 layer-shell 的 Wayland 会话中运行（如 Hyprland），并安装 `libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev`
+- **Layer-shell 不可用 (Linux)** — 确认在支持 layer-shell 的 Wayland 会话中运行（如 Hyprland、Sway、KDE 6+），并安装 `libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev`
+- **GNOME：提示"请注销并重新登录"** — 首次运行时 wewa 会自动安装配套的 GNOME Shell 扩展。GNOME Shell 需要重启才能加载新扩展，Wayland 下只能通过注销重新登录来重启。后续运行无需再次重启。
 - **端口被占用** — 使用 `--port 9000` 指定其他端口
 - **Shader 性能较差** — 对 `.shader` 输入使用 `--scale 0.5` 或 `--scale 0.75`
 - **查找显示器编号** — 使用 `--verbose` 运行以查看检测到的显示器

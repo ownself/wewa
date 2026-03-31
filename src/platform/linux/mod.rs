@@ -85,35 +85,93 @@ fn is_gnome_session() -> bool {
     false
 }
 
-/// Verify the companion GNOME Shell extension is installed and enabled.
-fn ensure_gnome_extension_available() -> PlatformResult<()> {
-    const EXT_UUID: &str = "wewa-wallpaper@priceless.dev";
+const EXT_UUID: &str = "wewa-wallpaper@priceless.dev";
 
-    let output = std::process::Command::new("gnome-extensions")
+const EXT_EXTENSION_JS: &str =
+    include_str!("../../../gnome-extension/wewa-wallpaper@priceless.dev/extension.js");
+const EXT_METADATA_JSON: &str =
+    include_str!("../../../gnome-extension/wewa-wallpaper@priceless.dev/metadata.json");
+const EXT_STYLESHEET_CSS: &str =
+    include_str!("../../../gnome-extension/wewa-wallpaper@priceless.dev/stylesheet.css");
+
+/// Check if the extension is active. Returns `true` if gnome-extensions
+/// reports it as ACTIVE or ENABLED.
+fn is_extension_active() -> bool {
+    std::process::Command::new("gnome-extensions")
         .args(["info", EXT_UUID])
-        .output();
+        .output()
+        .map(|out| {
+            let s = String::from_utf8_lossy(&out.stdout);
+            s.contains("ACTIVE") || s.contains("ENABLED")
+        })
+        .unwrap_or(false)
+}
 
-    let is_active = match output {
-        Ok(out) => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            stdout.contains("ACTIVE") || stdout.contains("ENABLED")
-        }
-        Err(_) => false,
-    };
+/// Install the embedded extension files to
+/// `~/.local/share/gnome-shell/extensions/<uuid>/`.
+fn install_extension() -> PlatformResult<()> {
+    let base = dirs::data_dir()
+        .ok_or_else(|| PlatformError::Other("Cannot determine XDG data directory".into()))?;
+    let ext_dir = base.join("gnome-shell/extensions").join(EXT_UUID);
 
-    if is_active {
+    std::fs::create_dir_all(&ext_dir).map_err(|e| {
+        PlatformError::Other(format!("Failed to create extension directory: {}", e))
+    })?;
+
+    for (name, content) in [
+        ("extension.js", EXT_EXTENSION_JS),
+        ("metadata.json", EXT_METADATA_JSON),
+        ("stylesheet.css", EXT_STYLESHEET_CSS),
+    ] {
+        std::fs::write(ext_dir.join(name), content).map_err(|e| {
+            PlatformError::Other(format!("Failed to write {}: {}", name, e))
+        })?;
+    }
+
+    Ok(())
+}
+
+/// Enable the extension via `gnome-extensions enable`.
+fn enable_extension() -> PlatformResult<()> {
+    let status = std::process::Command::new("gnome-extensions")
+        .args(["enable", EXT_UUID])
+        .status()
+        .map_err(|e| PlatformError::Other(format!("Failed to run gnome-extensions: {}", e)))?;
+
+    if !status.success() {
+        return Err(PlatformError::Other(
+            "gnome-extensions enable failed".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Ensure the companion GNOME Shell extension is installed and enabled.
+/// If missing, automatically install and enable it, then prompt for a
+/// GNOME Shell restart.
+fn ensure_gnome_extension_available() -> PlatformResult<()> {
+    if is_extension_active() {
         return Ok(());
     }
 
-    Err(PlatformError::Other(format!(
-        "GNOME detected but the wewa companion extension is not active.\n\n\
-         Install it:\n\
-         \x20 1. Copy the extension:\n\
-         \x20    cp -r gnome-extension/{uuid} \\\n\
-         \x20      ~/.local/share/gnome-shell/extensions/\n\
-         \x20 2. Enable it:\n\
-         \x20    gnome-extensions enable {uuid}\n\
-         \x20 3. Restart GNOME Shell (log out and back in on Wayland)\n",
-        uuid = EXT_UUID,
-    )))
+    println!("[INFO] Installing wewa GNOME Shell extension...");
+    install_extension()?;
+
+    // Try to enable — this may fail on first install because GNOME Shell
+    // hasn't loaded the extension yet. That is expected; a restart is
+    // required regardless.
+    let _ = enable_extension();
+
+    // Check if it became active immediately (rare but possible).
+    if is_extension_active() {
+        println!("[INFO] Extension activated successfully.");
+        return Ok(());
+    }
+
+    Err(PlatformError::Other(
+        "The wewa GNOME Shell extension has been installed successfully, \
+         but GNOME Shell must be restarted to load it.\n\
+         Please log out and log back in, then run wewa again."
+            .into(),
+    ))
 }
