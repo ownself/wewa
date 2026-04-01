@@ -1,6 +1,6 @@
 //! Linux Wayland wallpaper implementation using GTK, WebKitGTK, and layer-shell.
 
-use super::ensure_runtime_available;
+use super::{ensure_runtime_available, compositor_type, CompositorType};
 use crate::ipc::{IpcCommand, IpcServer};
 use crate::wallpaper::{WallpaperConfig, WallpaperError, WallpaperResult};
 use gdk::prelude::*;
@@ -154,7 +154,6 @@ fn create_wallpaper_window(
     })?;
 
     let window = Window::new(WindowType::Toplevel);
-    window.set_title("wewa");
     window.set_decorated(false);
     window.set_resizable(false);
     window.set_accept_focus(false);
@@ -164,18 +163,35 @@ fn create_wallpaper_window(
     window.stick();
     window.set_default_size(config.display.width as i32, config.display.height as i32);
 
-    window.init_layer_shell();
-    window.set_namespace("wewa");
-    window.set_layer(Layer::Background);
-    window.set_keyboard_mode(KeyboardMode::None);
-    window.set_anchor(Edge::Left, true);
-    window.set_anchor(Edge::Right, true);
-    window.set_anchor(Edge::Top, true);
-    window.set_anchor(Edge::Bottom, true);
-    window.set_monitor(&monitor);
-    // Background surfaces should cover the full output even when panels like Waybar
-    // claim exclusive zones; -1 asks the compositor to keep it fullscreen.
-    window.set_exclusive_zone(-1);
+    match compositor_type() {
+        CompositorType::LayerShell => {
+            window.set_title("wewa");
+            window.init_layer_shell();
+            window.set_namespace("wewa");
+            window.set_layer(Layer::Background);
+            window.set_keyboard_mode(KeyboardMode::None);
+            window.set_anchor(Edge::Left, true);
+            window.set_anchor(Edge::Right, true);
+            window.set_anchor(Edge::Top, true);
+            window.set_anchor(Edge::Bottom, true);
+            window.set_monitor(&monitor);
+            // Background surfaces should cover the full output even when panels like
+            // Waybar claim exclusive zones; -1 keeps it fullscreen.
+            window.set_exclusive_zone(-1);
+        }
+        CompositorType::Gnome => {
+            window.set_title("wewa-wallpaper");
+            // Set WM_CLASS so the companion GNOME Shell extension can
+            // identify wewa windows. glib::set_prgname is global but every
+            // window on the GNOME path is a wallpaper, so that is fine.
+            glib::set_prgname(Some("wewa-wallpaper"));
+            window.set_type_hint(gdk::WindowTypeHint::Desktop);
+            window.set_keep_below(true);
+            // Position on the correct monitor since we cannot use layer-shell's
+            // set_monitor().
+            window.move_(config.display.x, config.display.y);
+        }
+    }
 
     let webview = WebViewBuilder::new_gtk(&window)
         .with_initialization_script(DISABLE_POINTER_REACTIONS_SCRIPT)
