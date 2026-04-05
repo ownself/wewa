@@ -8,7 +8,7 @@
     "time_scale": 0.2
   },
   "ascend": {
-    "scale": 0.5,
+    "scale": 0.3,
     "time_scale": 0.2
   },
   "auroras": {
@@ -79,8 +79,8 @@
     "time_scale": 0.5
   },
   "pinkvoid": {
-    "scale": 0.5,
-    "time_scale": 0.5
+    "scale": 0.3,
+    "time_scale": 0.3
   },
   "plasma": {
     "scale": 0.5,
