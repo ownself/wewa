@@ -91,10 +91,7 @@ pub fn create_shader_bundle(
                 .and_then(|e| e.to_str())
                 .map(|e| e.eq_ignore_ascii_case("bin"))
                 .unwrap_or(false);
-            let ext = src
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("png");
+            let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("png");
             let filename = format!("ichannel{}.{}", i, ext);
             let dest = bundle_dir.join(&filename);
             fs::copy(&src, &dest).map_err(|e| {
@@ -209,10 +206,7 @@ fn resolve_channel_path(shader_path: &Path, channel_path: &str) -> Result<PathBu
     let resolved = if p.is_absolute() {
         p.to_path_buf()
     } else {
-        shader_path
-            .parent()
-            .unwrap_or(Path::new("."))
-            .join(p)
+        shader_path.parent().unwrap_or(Path::new(".")).join(p)
     };
     if !resolved.exists() {
         return Err(format!(
@@ -233,11 +227,7 @@ fn unique_shader_dir() -> Result<PathBuf, String> {
         .map_err(|e| format!("System clock error: {}", e))?
         .as_millis();
 
-    Ok(std::env::temp_dir().join(format!(
-        "wewa_shader_{}_{}",
-        std::process::id(),
-        timestamp
-    )))
+    Ok(std::env::temp_dir().join(format!("wewa_shader_{}_{}", std::process::id(), timestamp)))
 }
 
 fn build_shader_html(
@@ -463,6 +453,13 @@ void main() {{
       let lastFrameTime = startTime;
       let frame = 0;
       let mouse = [0, 0, 0, 0];
+      let lastResizeState = {{
+        width: 0,
+        height: 0,
+        dpr: 0,
+      }};
+      let resizeDirty = true;
+      let nextResizeCheckAt = 0;
 
       canvas.addEventListener("mousemove", event => {{
         const rect = canvas.getBoundingClientRect();
@@ -482,10 +479,23 @@ void main() {{
         mouse[3] = 0;
       }});
 
-      function resize() {{
+      function applyResizeIfNeeded(force) {{
         const dpr = window.devicePixelRatio || 1;
         const width = Math.max(1, Math.floor(window.innerWidth * dpr * renderScale));
         const height = Math.max(1, Math.floor(window.innerHeight * dpr * renderScale));
+        const changed =
+          force ||
+          width !== lastResizeState.width ||
+          height !== lastResizeState.height ||
+          dpr !== lastResizeState.dpr;
+
+        if (!changed) {{
+          return false;
+        }}
+
+        lastResizeState.width = width;
+        lastResizeState.height = height;
+        lastResizeState.dpr = dpr;
 
         if (canvas.width !== width || canvas.height !== height) {{
           canvas.width = width;
@@ -493,10 +503,19 @@ void main() {{
         }}
 
         gl.viewport(0, 0, canvas.width, canvas.height);
+        return true;
       }}
 
-      window.addEventListener("resize", resize);
-      resize();
+      function requestResize() {{
+        resizeDirty = true;
+      }}
+
+      window.addEventListener("resize", requestResize);
+      if (window.visualViewport) {{
+        window.visualViewport.addEventListener("resize", requestResize);
+      }}
+      applyResizeIfNeeded(true);
+      resizeDirty = false;
 
       gl.useProgram(program);
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -504,7 +523,14 @@ void main() {{
       gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
       function render(now) {{
-        resize();
+        if (resizeDirty) {{
+          applyResizeIfNeeded(false);
+          resizeDirty = false;
+          nextResizeCheckAt = now + 1000;
+        }} else if (now >= nextResizeCheckAt) {{
+          applyResizeIfNeeded(false);
+          nextResizeCheckAt = now + 1000;
+        }}
 
         const elapsed = ((now - startTime) / 1000) * timeScale;
         const delta = Math.max(0, (now - lastFrameTime) / 1000) * timeScale;
@@ -632,6 +658,8 @@ mod tests {
         assert!(html.contains("mainImage"));
         assert!(html.contains("renderScale = 0.5"));
         assert!(html.contains("timeScale = 1.25"));
+        assert!(html.contains("window.addEventListener(\"resize\", requestResize)"));
+        assert!(!html.contains("function render(now) {\n        resize();"));
     }
 
     #[test]
