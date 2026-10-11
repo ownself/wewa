@@ -2,6 +2,7 @@
 //!
 //! Defines the command-line interface for wewa.
 
+use crate::video::VideoFit;
 use clap::Parser;
 
 /// Display web content as desktop wallpaper
@@ -61,6 +62,10 @@ pub struct CliArgs {
     #[arg(long, visible_alias = "c3")]
     pub channel3: Option<String>,
 
+    /// Local video sizing: contain (default) keeps black bars, cover crops to fill the display
+    #[arg(long, value_enum, value_name = "MODE", requires = "url_or_path", conflicts_with_all = ["builtin", "random", "stop", "stopall"])]
+    pub video_fit: Option<VideoFit>,
+
     /// Enable verbose output
     #[arg(short = 'v', long)]
     pub verbose: bool,
@@ -119,6 +124,7 @@ impl CliArgs {
                 port: self.port,
                 scale: self.scale.unwrap_or(1.0),
                 time_scale: self.time_scale.unwrap_or(1.0),
+                video_fit: self.video_fit,
                 channels: [
                     self.channel0.clone(),
                     self.channel1.clone(),
@@ -142,6 +148,7 @@ pub enum CommandMode {
         port: u16,
         scale: f32,
         time_scale: f32,
+        video_fit: Option<VideoFit>,
         channels: [Option<String>; 4],
     },
     /// Start a built-in shader by name
@@ -216,6 +223,27 @@ mod tests {
                 assert!(all.contains(&name));
             }
             _ => panic!("Expected BuiltIn mode"),
+        }
+    }
+
+    #[test]
+    fn test_video_fit_defaults_and_dispatch() {
+        let args = CliArgs::parse_from(["wewa", "movie.mp4"]);
+        assert_eq!(args.video_fit, None);
+        for (value, expected) in [("contain", VideoFit::Contain), ("cover", VideoFit::Cover)] {
+            let args = CliArgs::parse_from(["wewa", "movie.mp4", "--video-fit", value]);
+            match args.mode() {
+                CommandMode::Start { video_fit, .. } => assert_eq!(video_fit, Some(expected)),
+                _ => panic!("Expected Start mode"),
+            }
+        }
+        for args in [
+            vec!["wewa", "movie.mp4", "--video-fit", "stretch"],
+            vec!["wewa", "--video-fit", "cover"],
+            vec!["wewa", "-b", "clouds", "--video-fit", "cover"],
+            vec!["wewa", "--stopall", "--video-fit", "cover"],
+        ] {
+            assert!(CliArgs::try_parse_from(args).is_err());
         }
     }
 

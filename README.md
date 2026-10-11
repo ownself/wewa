@@ -97,7 +97,8 @@ Built-in wallpapers are all dynamic wallpapers and optimized with GPU performanc
 
 - **Cross-Platform** — Windows, Linux (Wayland: Hyprland, Sway, KDE 6+, GNOME) and macOS
 - **Multi-Monitor** — Apply to all displays or target specific ones
-- **Local File Support** — Built-in HTTP server for local HTML/JS/CSS projects
+- **Local File Support** — Built-in streaming HTTP server for local HTML/JS/CSS projects, with byte-range support
+- **Video Wallpapers** — Muted, looping local videos using the system WebView; preserve the full image by default or crop to fill with `--video-fit cover`
 - **ShaderToy Integration** — Automatically converts ShaderToy URLs to fullscreen embed format. (Caution : native resolution may cause performance issues.)
 - **Local `.shader` Support** — Wrap single-pass ShaderToy snippets into a fullscreen WebGL runtime (Better performance with `--scale` parameter)
 - **iChannel Textures** — Supply 2D textures (`.png`/`.jpg`) and 3D volume textures (`.bin`) for ShaderToy shaders that use `iChannel0`–`iChannel3`
@@ -193,6 +194,15 @@ wewa -r
 # Override built-in defaults
 wewa -b clouds -s 1.0 --ts 0.5
 
+# Local video: muted loop, full image with black bars if needed
+wewa ./wallpaper.mp4
+
+# Preserve aspect ratio and crop to fill the display
+wewa ./wallpaper.mp4 --video-fit cover
+
+# Video on one monitor, with a custom server port
+wewa "./my videos/wallpaper.mp4" --display 0 --port 9000
+
 # Local HTML file
 wewa ./my-wallpaper/index.html
 
@@ -223,6 +233,7 @@ wewa --verbose https://example.com
 | `--stop <N>` | | Stop wallpaper on display N |
 | `--stopall` | `--sa` | Stop all running wallpapers |
 | `--port <PORT>` | `-p` | HTTP server port for local files (default: 8080) |
+| `--video-fit <MODE>` | | Local video sizing: `contain` (default, black bars) or `cover` (crop to fill) |
 | `--scale <FACTOR>` | `-s` | Shader render scale (default: 1.0, or per-shader default with `-b`) |
 | `--time-scale <FACTOR>` | `--ts` | Shader animation time scale (default: 1.0, or per-shader default with `-b`) |
 | `--channel0 <FILE>` | `--c0` | Texture file for iChannel0 (2D image or 3D `.bin` volume) |
@@ -232,6 +243,21 @@ wewa --verbose https://example.com
 | `--verbose` | `-v` | Enable verbose output |
 | `--help` | `-h` | Show help message |
 | `--version` | `-V` | Show version |
+
+### Video Wallpapers
+
+Local `.mp4`, `.m4v`, `.webm`, `.mov` and `.ogv` files are recognized (case-insensitive). **Recognition is not a codec guarantee**: playback depends on WebView2 / WKWebView / WebKitGTK and the system's codecs. H.264 MP4 is the recommended starting point; on Linux, media support also depends on GStreamer plugins and GPU drivers. Remote URLs remain ordinary web pages, not video inputs.
+
+- Playback is always muted and looping, without controls, using the media element's native `loop` behavior. Each display adapts independently; synchronized playback and strictly seamless loops are not guaranteed.
+- `contain` preserves the entire picture with a black background. `cover` preserves aspect ratio while cropping the edges; it cannot automatically remove black bars encoded into the video itself.
+- `--video-fit` applies only to local video inputs. Shader `--scale` and `--time-scale` retain their existing meanings.
+- The generated HTML is served from memory; the video is streamed directly from its original path. No video copy or write permission in the source directory is required, and sibling files are not exposed.
+- The page has no JavaScript frame loop or Canvas. Hardware decoding is selected by the system WebView, **not guaranteed by wewa**. Check actual decoder activity, CPU usage and power consumption on your hardware, especially with multiple displays.
+- Playback errors appear on the wallpaper and in stderr. `--verbose` reports the first playback event, but this is not proof of hardware decoding. Lock-screen/fullscreen auto-pause is not implemented in this version.
+
+The file server supports complete GET, HEAD and single byte ranges (`start-end`, `start-`, `-suffix`), returning 206 or 416 as appropriate. Malformed, multi-range or If-Range requests fall back to full 200 responses. Video data is not buffered as a whole file in Rust; browser media buffering still uses memory. Static project paths are URL-encoded, and symlinks outside the served root are rejected.
+
+Implementation and outstanding platform/performance acceptance tasks: [specs/002-webview-video-wallpaper/tasks.md](specs/002-webview-video-wallpaper/tasks.md).
 
 ### Shader Tuning
 
@@ -341,7 +367,8 @@ src/
 ├── cli.rs            # Argument parsing (clap)
 ├── config.rs         # Configuration and instance tracking
 ├── shader.rs         # Shader file support, iChannel textures, WebGL runtime generation
-├── server.rs         # Local HTTP server (tiny_http)
+├── video.rs          # Local video detection, minimal media page and diagnostics
+├── server.rs         # Streaming HTTP server, byte ranges, isolated video routes
 ├── ipc.rs            # IPC (named pipes / Unix sockets)
 ├── display.rs        # Shared monitor data model
 ├── wallpaper.rs      # Shared wallpaper config / errors
@@ -363,7 +390,8 @@ MIT
 
 - **跨平台** — 支持 Windows、Linux（Wayland：Hyprland、Sway、KDE 6+、GNOME）和 macOS
 - **多显示器** — 应用到所有显示器或指定特定显示器
-- **本地文件支持** — 内置 HTTP 服务器，支持本地 HTML/JS/CSS 项目
+- **本地文件支持** — 内置流式 HTTP 服务器，支持本地 HTML/JS/CSS 项目及字节范围请求
+- **视频壁纸** — 使用系统 WebView 静音循环播放本地视频；默认完整显示，可用 `--video-fit cover` 等比裁剪铺满
 - **ShaderToy 集成** — 自动将 ShaderToy URL 转换为全屏嵌入格式（警告：原生分辨率可能会导致性能问题）
 - **本地 `.shader` 支持** — 将单文件 ShaderToy 片段包装成全屏 WebGL 运行时（使用`--scale`参数使得性能更友好）
 - **iChannel 纹理** — 为使用 `iChannel0`–`iChannel3` 的 ShaderToy 着色器提供 2D 纹理（`.png`/`.jpg`）和 3D 体积纹理（`.bin`）
@@ -459,6 +487,15 @@ wewa -r
 # 覆盖内置默认参数
 wewa -b clouds -s 1.0 --ts 0.5
 
+# 本地视频：静音循环，比例不同时默认黑边
+wewa ./wallpaper.mp4
+
+# 等比缩放并裁剪，铺满显示器
+wewa ./wallpaper.mp4 --video-fit cover
+
+# 指定显示器和服务端口
+wewa "./我的视频/wallpaper.mp4" --display 0 --port 9000
+
 # 本地 HTML 文件
 wewa ./my-wallpaper/index.html
 
@@ -489,6 +526,7 @@ wewa --verbose https://example.com
 | `--stop <N>` | | 停止显示器 N 上的壁纸 |
 | `--stopall` | `--sa` | 停止所有运行中的壁纸 |
 | `--port <PORT>` | `-p` | 本地文件 HTTP 服务器端口（默认：8080） |
+| `--video-fit <MODE>` | | 本地视频适配：`contain`（默认，允许黑边）或 `cover`（裁剪铺满） |
 | `--scale <FACTOR>` | `-s` | 渲染缩放（默认：1.0，使用 `-b` 时按内置配置） |
 | `--time-scale <FACTOR>` | `--ts` | 动画时间缩放（默认：1.0，使用 `-b` 时按内置配置） |
 | `--channel0 <FILE>` | `--c0` | iChannel0 纹理文件（2D 图片或 3D `.bin` 体积纹理） |
@@ -498,6 +536,21 @@ wewa --verbose https://example.com
 | `--verbose` | `-v` | 启用详细输出 |
 | `--help` | `-h` | 显示帮助信息 |
 | `--version` | `-V` | 显示版本信息 |
+
+### 视频壁纸
+
+自动识别本地 `.mp4`、`.m4v`、`.webm`、`.mov`、`.ogv`（不区分大小写）。**识别扩展名不等于保证编码可播放**：具体支持取决于 WebView2 / WKWebView / WebKitGTK 和系统解码器。建议先使用 H.264 MP4；Linux 还依赖 GStreamer 插件及显卡驱动。远程 URL 仍作为普通网页处理，不自动包装为视频。
+
+- 始终静音、循环、无控件，使用媒体元素原生 `loop` 行为。各显示器独立适配，不保证同步或严格无缝循环。
+- `contain` 完整显示并使用黑色背景；`cover` 保持比例并裁剪边缘，不能自动去除视频文件内嵌的黑边。
+- `--video-fit` 仅用于本地视频；Shader 的 `--scale`、`--time-scale` 含义不变。
+- 播放器 HTML 保存在内存中，视频直接从原路径流式读取；不复制视频，不要求源目录可写，不公开同目录的其他文件。
+- 页面不使用 JavaScript 逐帧循环或 Canvas。硬件解码由系统 WebView 选择，**wewa 不保证必定启用**；尤其在多屏时，请实测解码器、CPU 和功耗。
+- 播放失败会显示壁纸内错误提示并输出 stderr；`--verbose` 输出首次播放事件，但不代表硬件解码已启用。本版没有锁屏/全屏自动暂停。
+
+文件服务器支持完整 GET、HEAD 及单字节范围（`start-end`、`start-`、`-suffix`），正确返回 206/416。畸形、多区间或含 If-Range 的请求回退完整 200 响应。Rust 侧不将视频完整缓冲进内存，但 WebView 仍有媒体缓冲开销。静态项目路径按 URL 编码；拒绝指向服务根目录以外的符号链接。
+
+实现及待完成的平台/性能验收任务：[specs/002-webview-video-wallpaper/tasks.md](specs/002-webview-video-wallpaper/tasks.md)。
 
 ### Shader 调节
 
@@ -606,7 +659,8 @@ src/
 ├── cli.rs            # 参数解析 (clap)
 ├── config.rs         # 配置和实例跟踪
 ├── shader.rs         # Shader 文件支持、iChannel 纹理、WebGL 运行时生成
-├── server.rs         # 本地 HTTP 服务器 (tiny_http)
+├── video.rs          # 视频识别、最小播放器页面、媒体事件反馈
+├── server.rs         # 流式 HTTP、字节范围、隔离的视频路由
 ├── ipc.rs            # 进程间通信（命名管道 / Unix Socket）
 ├── display.rs        # 共享显示器数据模型
 ├── wallpaper.rs      # 共享壁纸配置与错误类型

@@ -1,6 +1,6 @@
 //! Linux Wayland wallpaper implementation using GTK, WebKitGTK, and layer-shell.
 
-use super::{ensure_runtime_available, compositor_type, CompositorType};
+use super::{compositor_type, ensure_runtime_available, CompositorType};
 use crate::ipc::{IpcCommand, IpcServer};
 use crate::wallpaper::{WallpaperConfig, WallpaperError, WallpaperResult};
 use gdk::prelude::*;
@@ -193,11 +193,20 @@ fn create_wallpaper_window(
         }
     }
 
-    let webview = WebViewBuilder::new_gtk(&window)
+    let mut builder = WebViewBuilder::new_gtk(&window)
         .with_initialization_script(DISABLE_POINTER_REACTIONS_SCRIPT)
         .with_url(&config.url)
+        .with_autoplay(true)
         .with_devtools(false)
-        .with_background_color((0, 0, 0, 255))
+        .with_background_color((0, 0, 0, 255));
+    if config.is_video {
+        let display = config.display.index;
+        let verbose = config.verbose;
+        builder = builder.with_ipc_handler(move |request| {
+            crate::video::report_media_event(request.body(), display, verbose);
+        });
+    }
+    let webview = builder
         .build()
         .map_err(|e| WallpaperError::WindowCreationFailed(format!("WebView error: {}", e)))?;
 
