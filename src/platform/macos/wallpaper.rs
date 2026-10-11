@@ -117,10 +117,19 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         // Apply desktop-level styles via the raw NSWindow pointer
         apply_wallpaper_styles(&window, verbose)?;
 
-        let webview = WebViewBuilder::new(&window)
+        let mut builder = WebViewBuilder::new(&window)
             .with_url(&config.url)
+            .with_autoplay(true)
             .with_devtools(false)
-            .with_background_color((0, 0, 0, 255))
+            .with_background_color((0, 0, 0, 255));
+        if config.is_video {
+            let display = config.display.index;
+            let verbose = config.verbose;
+            builder = builder.with_ipc_handler(move |request| {
+                crate::video::report_media_event(request.body(), display, verbose);
+            });
+        }
+        let webview = builder
             .build()
             .map_err(|e| WallpaperError::WindowCreationFailed(format!("WebView error: {}", e)))?;
 

@@ -11,6 +11,7 @@ mod ipc;
 mod platform;
 mod server;
 mod shader;
+mod video;
 mod wallpaper;
 
 use cli::{CliArgs, CommandMode};
@@ -53,6 +54,7 @@ fn main() {
             port,
             scale,
             time_scale,
+            video_fit,
             channels,
         } => handle_start(
             &config,
@@ -62,6 +64,7 @@ fn main() {
             scale,
             time_scale,
             &channels,
+            video_fit,
             args.verbose,
         ),
 
@@ -210,8 +213,17 @@ fn handle_start(
     scale: f32,
     time_scale: f32,
     channels: &[Option<String>; 4],
+    video_fit: Option<video::VideoFit>,
     verbose: bool,
 ) -> i32 {
+    // Reject bad video inputs before stopping any existing wallpaper.
+    let is_local_video = match video::validate_input(url_or_path, video_fit) {
+        Ok(is_video) => is_video,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return exit_codes::GENERAL_ERROR;
+        }
+    };
     if verbose {
         println!("[INFO] Starting wallpaper...");
         println!("[INFO] URL/Path: {}", url_or_path);
@@ -327,37 +339,55 @@ fn handle_start(
         }
 
         let local_path = Path::new(url_or_path);
-        let (root_dir, filename) = if shader::is_shader_file(local_path) {
+        let (mut local_server, filename) = if is_local_video {
             if verbose {
-                println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
+                println!(
+                    "[INFO] Local video: muted loop, fit={:?}",
+                    video_fit.unwrap_or_default()
+                );
+                println!(
+                    "[INFO] Codec support and hardware decoding depend on the system WebView."
+                );
             }
-
-            let bundle = match shader::create_shader_bundle(local_path, scale, time_scale, channels) {
-                Ok(bundle) => bundle,
+            match LocalServer::for_video(local_path, port, video_fit.unwrap_or_default()) {
+                Ok(server) => (server, String::new()),
                 Err(e) => {
-                    eprintln!("error: {}", e);
+                    eprintln!("error: Failed to open video: {}", e);
                     return exit_codes::GENERAL_ERROR;
+                }
+            }
+        } else {
+            let (root_dir, filename) = if shader::is_shader_file(local_path) {
+                if verbose {
+                    println!("[INFO] Detected .shader input, generating temporary HTML runtime...");
+                }
+                let bundle =
+                    match shader::create_shader_bundle(local_path, scale, time_scale, channels) {
+                        Ok(bundle) => bundle,
+                        Err(e) => {
+                            eprintln!("error: {}", e);
+                            return exit_codes::GENERAL_ERROR;
+                        }
+                    };
+                let root_dir = bundle.root_dir.clone();
+                let entry_file = bundle.entry_file.clone();
+                shader_bundle = Some(bundle);
+                (root_dir, entry_file)
+            } else {
+                match resolve_local_path(url_or_path) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("error: {}", e);
+                        return exit_codes::GENERAL_ERROR;
+                    }
                 }
             };
-
-            let root_dir = bundle.root_dir.clone();
-            let entry_file = bundle.entry_file.clone();
-            shader_bundle = Some(bundle);
-            (root_dir, entry_file)
-        } else {
-            match resolve_local_path(url_or_path) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("error: {}", e);
-                    return exit_codes::GENERAL_ERROR;
-                }
+            if verbose {
+                println!("[INFO] Serving files from: {:?}", root_dir);
+                println!("[INFO] Entry file: {}", filename);
             }
+            (LocalServer::new(root_dir, port), filename)
         };
-
-        if verbose {
-            println!("[INFO] Serving files from: {:?}", root_dir);
-            println!("[INFO] Entry file: {}", filename);
-        }
 
         // Check if port is available
         if !LocalServer::is_port_available(port) {
@@ -366,14 +396,18 @@ fn handle_start(
             return exit_codes::SERVER_STARTUP_FAILED;
         }
 
-        // Start the server
-        let mut local_server = LocalServer::new(root_dir, port);
+        // Start the server, allowing for each monitor's media/page requests.
+        local_server = local_server.for_displays(target_displays.len());
         if let Err(e) = local_server.start() {
             eprintln!("error: Failed to start HTTP server: {}", e);
             return exit_codes::SERVER_STARTUP_FAILED;
         }
 
-        let url = local_server.file_url(&filename);
+        let url = if is_local_video {
+            local_server.video_url()
+        } else {
+            local_server.file_url(&filename)
+        };
         if verbose {
             println!("[INFO] HTTP server started at {}", local_server.url());
             println!("[INFO] Loading: {}", url);
@@ -383,7 +417,7 @@ fn handle_start(
     };
 
     // Write instance files for all target displays
-    let server_port = server.as_ref().map(|_| port);
+    let server_port = server.as_ref().map(LocalServer::port);
     let display_indices: Vec<u32> = target_displays.iter().map(|d| d.index).collect();
 
     for target_display in &target_displays {
@@ -405,7 +439,11 @@ fn handle_start(
     // Create wallpaper configurations for all displays
     let wallpaper_configs: Vec<WallpaperConfig> = target_displays
         .iter()
-        .map(|d| WallpaperConfig::new(url.clone(), d.clone(), verbose))
+        .map(|d| {
+            let mut config = WallpaperConfig::new(url.clone(), d.clone(), verbose);
+            config.is_video = is_local_video;
+            config
+        })
         .collect();
 
     // Print status message
@@ -509,6 +547,7 @@ fn handle_builtin(
         scale,
         time_scale,
         &channels,
+        None,
         verbose,
     );
 

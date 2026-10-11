@@ -14,6 +14,8 @@ pub struct WallpaperConfig {
     pub display: Display,
     /// Whether to enable verbose logging
     pub verbose: bool,
+    /// Whether to receive diagnostics from our generated local video page
+    pub is_video: bool,
 }
 
 impl WallpaperConfig {
@@ -23,6 +25,7 @@ impl WallpaperConfig {
             url,
             display,
             verbose,
+            is_video: false,
         }
     }
 }
