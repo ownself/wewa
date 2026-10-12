@@ -211,9 +211,13 @@ fn validate_and_resolve_path(root: &Path, requested_path: &str) -> io::Result<Pa
             "Path not allowed",
         ));
     }
+    // A static project's user-selected tree is trusted: its symlinks and
+    // junctions intentionally publish their targets, including external media.
+    // Reject URL traversal above, but do not reject these links by comparing
+    // canonical paths. Single-video mode never uses this directory resolver.
     let root = root.canonicalize()?;
     let path = root.join(decoded).canonicalize()?;
-    if !path.starts_with(&root) || !path.is_file() {
+    if !path.is_file() {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "Path not allowed",
@@ -665,13 +669,127 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn link_directory(target: &Path, link: &Path) {
+        std::os::unix::fs::symlink(target, link).unwrap();
+    }
+
+    #[cfg(windows)]
+    fn link_directory(target: &Path, link: &Path) {
+        // Junctions do not need symlink privileges or Windows Developer Mode.
+        let output = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "Failed to create test junction: {:?}",
+            output
+        );
+    }
+
+    #[cfg(any(unix, windows))]
     #[test]
-    fn symlinks_may_not_escape_the_static_root() {
+    fn static_projects_serve_media_through_directory_links() {
         let dir = TestDir::new();
         let outside = TestDir::new();
-        fs::write(outside.0.join("secret"), b"secret").unwrap();
-        std::os::unix::fs::symlink(outside.0.join("secret"), dir.0.join("link")).unwrap();
-        assert!(validate_and_resolve_path(&dir.0, "link").is_err());
+        fs::write(dir.0.join("index.html"), b"<html>slideshow</html>").unwrap();
+        fs::create_dir(dir.0.join("media")).unwrap();
+        fs::write(dir.0.join("media/list.json"), b"[]").unwrap();
+        fs::write(outside.0.join("frame +中文.jpg"), b"image").unwrap();
+        fs::write(outside.0.join("clip.mp4"), b"0123456789").unwrap();
+        let link = dir.0.join("media/linked assets");
+        link_directory(&outside.0, &link);
+
+        let mut server = LocalServer::new(dir.0.clone(), 0);
+        server.start().unwrap();
+        assert!(request(server.port(), "GET", "/index.html", "")
+            .0
+            .starts_with("http/1.1 200"));
+        assert_eq!(
+            request(server.port(), "GET", "/media/list.json", "").1,
+            b"[]"
+        );
+        let image_path = format!("/{}", encode_path("media/linked assets/frame +中文.jpg"));
+        let (heads, body) = request(server.port(), "GET", &image_path, "");
+        assert!(
+            heads.starts_with("http/1.1 200"),
+            "Linked image response: {}",
+            heads
+        );
+        assert!(heads.contains("content-type: image/jpeg"));
+        assert_eq!(body, b"image");
+        let video_path = format!("/{}", encode_path("media/linked assets/clip.mp4"));
+        let (heads, body) = request(server.port(), "HEAD", &video_path, "");
+        assert!(heads.contains("content-length: 10"));
+        assert!(body.is_empty());
+        let (heads, body) = request(server.port(), "GET", &video_path, "Range: bytes=2-4\r\n");
+        assert!(heads.starts_with("http/1.1 206"));
+        assert!(heads.contains("content-range: bytes 2-4/10"));
+        assert_eq!(body, b"234");
+        for path in [
+            "/media/../index.html",
+            "/media/linked%20assets/%2e%2e/clip.mp4",
+            "/media/C%3A/clip.mp4",
+        ] {
+            assert!(request(server.port(), "GET", path, "")
+                .0
+                .starts_with("http/1.1 404"));
+        }
+        // Remove just the link, not its target (also works for Windows junctions).
+        #[cfg(windows)]
+        fs::remove_dir(&link).unwrap();
+        #[cfg(unix)]
+        fs::remove_file(&link).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn static_projects_serve_explicit_file_symlinks() {
+        let dir = TestDir::new();
+        let outside = TestDir::new();
+        fs::write(outside.0.join("image.jpg"), b"image").unwrap();
+        std::os::unix::fs::symlink(outside.0.join("image.jpg"), dir.0.join("image.jpg")).unwrap();
+        let mut server = LocalServer::new(dir.0.clone(), 0);
+        server.start().unwrap();
+        let (heads, body) = request(server.port(), "GET", "/image.jpg", "");
+        assert!(heads.starts_with("http/1.1 200"));
+        assert_eq!(body, b"image");
+    }
+
+    #[test]
+    #[ignore = "Set WEWA_TEST_SLIDESHOW to a local slideshow with media/list.json and linked assets"]
+    fn slideshow_http_smoke_from_environment() {
+        // Read-only opt-in smoke test; it does not create wallpaper windows.
+        let root = PathBuf::from(
+            std::env::var_os("WEWA_TEST_SLIDESHOW").expect("Set WEWA_TEST_SLIDESHOW"),
+        );
+        let mut server = LocalServer::new(root.clone(), 0);
+        server.start().unwrap();
+        let (heads, _) = request(server.port(), "GET", "/index.html", "");
+        assert!(heads.starts_with("http/1.1 200"));
+        let (heads, body) = request(server.port(), "GET", "/media/list.json", "");
+        assert!(heads.starts_with("http/1.1 200"));
+        let list: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let canonical_root = root.canonicalize().unwrap();
+        let filename = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|entry| entry["filename"].as_str())
+            .find(|filename| {
+                root.join("media")
+                    .join(filename)
+                    .canonicalize()
+                    .map(|path| path.is_file() && !path.starts_with(&canonical_root))
+                    .unwrap_or(false)
+            })
+            .expect("Slideshow should reference at least one existing external linked asset");
+        let url = format!("/{}", encode_path(&format!("media/{}", filename)));
+        let (heads, body) = request(server.port(), "GET", &url, "Range: bytes=0-31\r\n");
+        assert!(heads.starts_with("http/1.1 206"));
+        assert_eq!(body.len(), 32);
     }
 
     #[test]

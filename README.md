@@ -255,7 +255,7 @@ Local `.mp4`, `.m4v`, `.webm`, `.mov` and `.ogv` files are recognized (case-inse
 - The page has no JavaScript frame loop or Canvas. Hardware decoding is selected by the system WebView, **not guaranteed by wewa**. Check actual decoder activity, CPU usage and power consumption on your hardware, especially with multiple displays.
 - Playback errors appear on the wallpaper and in stderr. `--verbose` reports the first playback event, but this is not proof of hardware decoding. Lock-screen/fullscreen auto-pause is not implemented in this version.
 
-The file server supports complete GET, HEAD and single byte ranges (`start-end`, `start-`, `-suffix`), returning 206 or 416 as appropriate. Malformed, multi-range or If-Range requests fall back to full 200 responses. Video data is not buffered as a whole file in Rust; browser media buffering still uses memory. Static project paths are URL-encoded, and symlinks outside the served root are rejected.
+The file server supports complete GET, HEAD and single byte ranges (`start-end`, `start-`, `-suffix`), returning 206 or 416 as appropriate. Malformed, multi-range or If-Range requests fall back to full 200 responses. Video data is not buffered as a whole file in Rust; browser media buffering still uses memory. Static project paths are URL-encoded and path traversal is rejected. Explicit symlinks and directory junctions inside a static project are followed, including external media targets; only serve trusted project directories. Single-video mode still exposes only the specified video and its player page.
 
 Implementation and outstanding platform/performance acceptance tasks: [specs/002-webview-video-wallpaper/tasks.md](specs/002-webview-video-wallpaper/tasks.md).
 
@@ -548,7 +548,7 @@ wewa --verbose https://example.com
 - 页面不使用 JavaScript 逐帧循环或 Canvas。硬件解码由系统 WebView 选择，**wewa 不保证必定启用**；尤其在多屏时，请实测解码器、CPU 和功耗。
 - 播放失败会显示壁纸内错误提示并输出 stderr；`--verbose` 输出首次播放事件，但不代表硬件解码已启用。本版没有锁屏/全屏自动暂停。
 
-文件服务器支持完整 GET、HEAD 及单字节范围（`start-end`、`start-`、`-suffix`），正确返回 206/416。畸形、多区间或含 If-Range 的请求回退完整 200 响应。Rust 侧不将视频完整缓冲进内存，但 WebView 仍有媒体缓冲开销。静态项目路径按 URL 编码；拒绝指向服务根目录以外的符号链接。
+文件服务器支持完整 GET、HEAD 及单字节范围（`start-end`、`start-`、`-suffix`），正确返回 206/416。畸形、多区间或含 If-Range 的请求回退完整 200 响应。Rust 侧不将视频完整缓冲进内存，但 WebView 仍有媒体缓冲开销。静态项目路径按 URL 编码并拒绝路径穿越；支持项目目录内显式建立的符号链接和目录联接，包括指向外部媒体目录的链接，因此只应服务可信项目目录。单视频模式仍仅暴露指定视频及播放器页面。
 
 实现及待完成的平台/性能验收任务：[specs/002-webview-video-wallpaper/tasks.md](specs/002-webview-video-wallpaper/tasks.md)。
 
