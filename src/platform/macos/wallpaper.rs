@@ -14,7 +14,7 @@ use cocoa::base::{id, nil, YES};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tao::dpi::{LogicalPosition, LogicalSize};
 use tao::event::{Event, StartCause, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
@@ -150,7 +150,10 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             return;
         }
 
-        *control_flow = ControlFlow::Poll;
+        // Periodically check the shutdown flag without blocking AppKit's main
+        // thread or busy-polling. Native events can wake the loop before this
+        // deadline; this interval is not a WebView/Shader frame-rate limit.
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
 
         // Keep webviews alive
         let _ = &windows_and_webviews;
@@ -177,9 +180,6 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
                 if verbose {
                     println!("[INFO] Wallpaper is now running. Press Ctrl+C to stop.");
                 }
-            }
-            Event::MainEventsCleared => {
-                std::thread::sleep(Duration::from_millis(50));
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested | WindowEvent::Destroyed,

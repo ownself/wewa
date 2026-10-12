@@ -38,7 +38,7 @@ pub struct CliArgs {
     #[arg(short = 'r', long, conflicts_with_all = ["url_or_path", "builtin"])]
     pub random: bool,
 
-    /// Shader render scale for .shader inputs (default: 1.0)
+    /// Shader render scale relative to CSS/logical dimensions, without a DPI multiplier (0.1-2.0; default: 1.0 for files, preset for built-ins)
     #[arg(short = 's', long)]
     pub scale: Option<f32>,
 

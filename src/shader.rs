@@ -456,7 +456,6 @@ void main() {{
       let lastResizeState = {{
         width: 0,
         height: 0,
-        dpr: 0,
       }};
       let resizeDirty = true;
       let nextResizeCheckAt = 0;
@@ -480,14 +479,18 @@ void main() {{
       }});
 
       function applyResizeIfNeeded(force) {{
-        const dpr = window.devicePixelRatio || 1;
-        const width = Math.max(1, Math.floor(window.innerWidth * dpr * renderScale));
-        const height = Math.max(1, Math.floor(window.innerHeight * dpr * renderScale));
+        // Intentionally use CSS pixels on all platforms for wallpaper performance:
+        // multiplying by devicePixelRatio=2 would quadruple the fragment workload.
+        // Both built-in and explicit scales use this policy. Increase renderScale
+        // for sharper output (DPR=2 needs scale=2 for native-DPI resolution).
+        // If native-DPI defaults are restored later, multiply both dimensions by
+        // (window.devicePixelRatio || 1) and revisit scale semantics/tests.
+        const width = Math.max(1, Math.floor(window.innerWidth * renderScale));
+        const height = Math.max(1, Math.floor(window.innerHeight * renderScale));
         const changed =
           force ||
           width !== lastResizeState.width ||
-          height !== lastResizeState.height ||
-          dpr !== lastResizeState.dpr;
+          height !== lastResizeState.height;
 
         if (!changed) {{
           return false;
@@ -495,7 +498,6 @@ void main() {{
 
         lastResizeState.width = width;
         lastResizeState.height = height;
-        lastResizeState.dpr = dpr;
 
         if (canvas.width !== width || canvas.height !== height) {{
           canvas.width = width;
@@ -658,6 +660,11 @@ mod tests {
         assert!(html.contains("mainImage"));
         assert!(html.contains("renderScale = 0.5"));
         assert!(html.contains("timeScale = 1.25"));
+        assert!(html.contains("Math.floor(window.innerWidth * renderScale)"));
+        assert!(html.contains("Math.floor(window.innerHeight * renderScale)"));
+        assert!(!html.contains("const dpr ="));
+        assert!(!html.contains("lastResizeState.dpr"));
+        assert!(!html.contains("* dpr * renderScale"));
         assert!(html.contains("window.addEventListener(\"resize\", requestResize)"));
         assert!(!html.contains("function render(now) {\n        resize();"));
     }
