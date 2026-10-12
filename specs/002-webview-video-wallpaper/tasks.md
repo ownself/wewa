@@ -14,7 +14,7 @@
 
 `src/video.rs` 负责识别、显示模式、最小 HTML 和媒体事件。`src/server.rs` 提供静态目录模式和单视频模式。单视频模式只公开播放器 HTML 与指定视频，不公开视频所在目录。`src/main.rs` 将本地视频分支接入现有启动流程。平台 WebView 使用现有自动播放策略并为视频接入 IPC 错误反馈。
 
-HTTP 约定：GET 完整响应 200；单字节区间响应 206，支持 `start-end`、`start-`、`-suffix`；有效但无交集的区间返回 416 及 `Content-Range: bytes */length`。畸形/未知单位/多区间 Range 忽略并返回 200（不伪造 multipart）；HEAD 忽略 Range，返回完整资源头且无正文。含 If-Range 的请求保守回退 200，不宣称支持验证器。设置正确 MIME、长度和 Accept-Ranges；保持 no-store，不实现媒体缓存。播放期间应保持原文件不变，本版不提供文件变化检测或跨请求快照一致性。普通静态目录仍需阻止路径穿越及符号链接逃逸。
+HTTP 约定：GET 完整响应 200；单字节区间响应 206，支持 `start-end`、`start-`、`-suffix`；有效但无交集的区间返回 416 及 `Content-Range: bytes */length`。畸形/未知单位/多区间 Range 忽略并返回 200（不伪造 multipart）；HEAD 忽略 Range，返回完整资源头且无正文。含 If-Range 的请求保守回退 200，不宣称支持验证器。设置正确 MIME、长度和 Accept-Ranges；保持 no-store，不实现媒体缓存。播放期间应保持原文件不变，本版不提供文件变化检测或跨请求快照一致性。普通静态目录拒绝 URL 路径穿越，但兼容用户在项目内显式建立的符号链接和目录联接，即使其目标位于根目录外。这些链接是用户对外部资源的显式发布，只应服务可信项目目录；单视频模式不开放目录链接。
 
 ## 状态说明
 
@@ -34,7 +34,7 @@ HTTP 约定：GET 完整响应 200；单字节区间响应 206，支持 `start-e
 - [x] T005 将 `fs::read` 全量响应改成 File + Seek + Take 的流式响应。
 - [x] T006 实现单范围、完整 GET、HEAD、416、正确长度/MIME；明确不支持多区间及 If-Range 验证器的回退行为。
 - [x] T007 添加单视频专用路由，只暴露内存中的 HTML 和原视频；补全视频 MIME。
-- [x] T008 正确处理 UTF-8/百分号、字面量 +、查询串、路径穿越、符号链接逃逸；构造 URL 时编码文件名。
+- [x] T008 正确处理 UTF-8/百分号、字面量 +、查询串和路径穿越；构造 URL 时编码文件名。静态项目内显式符号链接/目录联接允许指向外部资源（见 HTML 兼容性回归修正）。
 - [x] T009 限制应用层请求工作线程数量（默认 4，按屏数增加，最多 64）；空闲线程阻塞等待请求，不定时轮询，由 shutdown 显式唤醒退出。活动网络传输退出仍依赖客户端断开或响应结束。
 - [x] T010 添加真实 loopback HTTP 测试，验证状态、响应头、正文、并发 range、HEAD、错误区间、空文件和路由隔离；用稀疏大文件验证小范围读取。
 
@@ -94,6 +94,16 @@ HTTP 约定：GET 完整响应 200；单字节区间响应 206，支持 `start-e
 回退后 `cargo test --locked` 42 项通过，`cargo build --release --locked` 成功；本轮未运行真实桌面播放。
 
 真实 WebView 连续循环验收仍按 T016–T018/T024 执行，不以页面属性测试替代。复测应运行 `cargo run --release --locked -- <视频路径>` 或 `target/release/wewa.exe`，不要运行遗留名称的程序。
+
+## HTML 兼容性回归修正：链接到外部媒体的静态项目
+
+`E:\Projects\Others\SlideShow` 的 HTML 与 media/list.json 位于项目目录内，媒体则通过 media 下多个链接指向外部目录。第一版在 canonicalize 后要求文件仍位于根目录内，误拒绝这些资源并返回 404。这是文件服务安全策略变更引入的兼容性回归，并非 HTML 项目被误识别为独立视频。
+
+- [x] T029 恢复静态项目内显式符号链接/目录联接的访问，继续拒绝 ..、编码后的穿越、绝对路径及驱动/备用流语法；单视频路由隔离保持不变。README 同步说明可信项目目录的发布边界。
+- [x] T030 添加跨平台目录链接回归测试（Windows 使用不需管理员权限的 junction），验证链接图片、视频 HEAD/Range 和穿越拒绝；保留 Unix 文件符号链接测试。新增通过 WEWA_TEST_SLIDESHOW 指定本地样例的 opt-in HTTP 冒烟测试，不创建壁纸窗口或修改外部项目。
+- [ ] T031 使用更新的 wewa 在真实桌面复测 SlideShow 的图片/视频、布局切换及长期轮播；不能用 HTTP 测试代替显示验收。
+
+验证记录：修正前 Windows junction 测试确实得到 404；修正后 `cargo test --locked` 43 项通过，1 项样例测试默认忽略。另以用户指定的 SlideShow 目录单独运行该样例测试，主页、JSON 清单及一个外部链接媒体的 Range 请求均通过。Windows junction 回归已执行；Unix 符号链接测试尚未在本机执行。Release 构建、变更文件 rustfmt 和 git diff --check 通过；Clippy 执行成功，保留 9 项既有告警。未修改 SlideShow 项目，也未运行真实桌面显示验收。
 
 ## 拆分顺序
 
