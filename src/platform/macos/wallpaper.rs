@@ -10,13 +10,13 @@
 use crate::ipc::{IpcCommand, IpcServer};
 use crate::wallpaper::{WallpaperConfig, WallpaperError, WallpaperResult};
 use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
-use cocoa::base::{id, YES};
+use cocoa::base::{id, nil, YES};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Duration;
 use tao::dpi::{LogicalPosition, LogicalSize};
-use tao::event::{Event, WindowEvent};
+use tao::event::{Event, StartCause, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS, WindowExtMacOS};
 use tao::window::{Window, WindowBuilder};
@@ -85,6 +85,7 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
     // Create the event loop with Accessory policy so no Dock icon appears
     let mut event_loop = EventLoop::new();
     event_loop.set_activation_policy(ActivationPolicy::Accessory);
+    event_loop.set_activate_ignoring_other_apps(false);
 
     // Build windows + webviews
     let mut windows_and_webviews: Vec<(Window, WebView)> = Vec::new();
@@ -133,20 +134,9 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
             .build()
             .map_err(|e| WallpaperError::WindowCreationFailed(format!("WebView error: {}", e)))?;
 
-        window.set_visible(true);
-
-        if verbose {
-            println!(
-                "[INFO] Wallpaper window visible on display {}",
-                config.display.index
-            );
-        }
-
+        // Keep the window hidden until StartCause::Init: Tao 0.30's startup
+        // activation logic calls makeKeyAndOrderFront: on already-visible windows.
         windows_and_webviews.push((window, webview));
-    }
-
-    if verbose {
-        println!("[INFO] Wallpaper is now running. Press Ctrl+C to stop.");
     }
 
     // Event loop
@@ -166,6 +156,28 @@ pub fn create_wallpapers(configs: Vec<WallpaperConfig>) -> WallpaperResult<()> {
         let _ = &windows_and_webviews;
 
         match event {
+            Event::NewEvents(StartCause::Init) => {
+                for ((window, _), config) in windows_and_webviews.iter().zip(&configs) {
+                    // Unlike Window::set_visible(true), orderFront: does not ask
+                    // AppKit to make the wallpaper the key window. The desktop
+                    // window level configured above remains in effect.
+                    // SAFETY: Tao owns the live NSWindow, and this callback runs
+                    // on the macOS event-loop thread.
+                    unsafe {
+                        let ns_window = window.ns_window() as id;
+                        ns_window.orderFront_(nil);
+                    }
+                    if verbose {
+                        println!(
+                            "[INFO] Wallpaper window visible without requesting focus on display {}",
+                            config.display.index
+                        );
+                    }
+                }
+                if verbose {
+                    println!("[INFO] Wallpaper is now running. Press Ctrl+C to stop.");
+                }
+            }
             Event::MainEventsCleared => {
                 std::thread::sleep(Duration::from_millis(50));
             }
